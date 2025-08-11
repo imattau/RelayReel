@@ -23,9 +23,20 @@ export interface PendingUpload {
   file: Blob;
 }
 
+export interface ZapSplit {
+  address: string;
+  amount: number; // sats
+}
+
+export interface ZapMetadata {
+  creator: string;
+  splits: ZapSplit[];
+}
+
 export interface ZapReceipt {
   id: string;
   event: Event;
+  metadata: ZapMetadata;
   createdAt: number;
 }
 
@@ -43,6 +54,13 @@ db.version(1).stores({
   pendingUploads: '&id',
 });
 db.version(2).stores({
+  videos: '&id',
+  metadata: '&id',
+  pendingUploads: '&id',
+  zapReceipts: '&id, createdAt',
+});
+
+db.version(3).stores({
   videos: '&id',
   metadata: '&id',
   pendingUploads: '&id',

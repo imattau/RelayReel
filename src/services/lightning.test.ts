@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { Event } from 'nostr-tools';
-import { formatAmount, parseZapEvent } from './zap';
+import { formatAmount, parseZapEvent } from './lightning';
 
 describe('formatAmount', () => {
   it('formats sats with separators', () => {
@@ -9,16 +9,23 @@ describe('formatAmount', () => {
 });
 
 describe('parseZapEvent', () => {
-  it('extracts amount and sender', () => {
+  it('extracts amount, sender, and splits', () => {
     const event: Event = {
       id: '1',
       pubkey: 'pub',
       created_at: 0,
       kind: 9735,
-      tags: [['amount', '1000']],
+      tags: [
+        ['amount', '100000'],
+        ['zap_split', 'host', '1000']
+      ],
       content: '',
       sig: '',
     };
-    expect(parseZapEvent(event)).toEqual({ amount: 1, sender: 'pub' });
+    expect(parseZapEvent(event)).toEqual({
+      amount: 100,
+      sender: 'pub',
+      splits: [{ address: 'host', amount: 1 }]
+    });
   });
 });
