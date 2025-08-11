@@ -76,9 +76,14 @@ class NostrService {
     );
   }
 
-  /** Set the active signer, either a Nip07 or Nip46 implementation. */
-  setSigner(signer: Nip07Signer | Nip46Signer): void {
+  /** Set or clear the active signer. */
+  setSigner(signer?: Nip07Signer | Nip46Signer): void {
     this.signer = signer;
+  }
+
+  /** Expose the underlying SimplePool so other modules can reuse network connections. */
+  getPool(): SimplePool {
+    return this.pool;
   }
 
   /** Sign and publish an event to all connected relays. */

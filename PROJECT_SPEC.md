@@ -6,8 +6,9 @@ RelayReel is a TikTok‑style short‑video Progressive Web App powered by the N
 ### Goals
 1. **Mobile‑first PWA** with installability, offline caching, and fast startup.
 2. **Nostr‑based social graph** for posts, reactions, follows, and zap receipts.
-3. **Clear separation of concerns**: presentational components, feature hooks, and service wrappers.
-4. **Resource‑aware implementation**: evaluate network usage, server load, device memory and storage, and responsiveness before writing code.
+3. **Remote signer support** (NIP‑46) for delegated event signing alongside NIP‑07 browser extensions.
+4. **Clear separation of concerns**: presentational components, feature hooks, and service wrappers.
+5. **Resource‑aware implementation**: evaluate network usage, server load, device memory and storage, and responsiveness before writing code.
 
 ### Tech Stack
 | Layer/Concern            | Library/Framework                |
@@ -30,7 +31,7 @@ src/
  │   ├─ feed/             # useVideoFeed, swipe logic
  │   ├─ zaps/             # useZap, zap totals
  │   ├─ upload/           # useUploadVideo
- │   └─ auth/             # useAuth (NIP-07)
+ │   └─ auth/             # useAuth (NIP-07) & useRemoteSigner (NIP-46)
  ├─ services/
  │   ├─ nostr.ts          # wrapper around nostr-tools
  │   ├─ video.ts          # playback utilities (react-player)
