@@ -1,12 +1,13 @@
 ## Project Specification — RelayReel
 
 ### Overview
-RelayReel is a TikTok‑style short‑video Progressive Web App powered by the Nostr protocol. The app delivers a swipeable feed of clips, allows creators to upload and receive zaps (Lightning payments), and supports offline usage through PWA features.
+RelayReel is a TikTok‑style short‑video Progressive Web App powered by the Nostr protocol. The app delivers a swipeable feed of clips, allows creators to upload and receive zaps (Lightning payments), and supports offline usage through PWA features. All code must be resource‑aware, minimizing network and server load and fitting within device memory and storage constraints while maintaining responsiveness.
 
 ### Goals
 1. **Mobile‑first PWA** with installability, offline caching, and fast startup.
 2. **Nostr‑based social graph** for posts, reactions, follows, and zap receipts.
 3. **Clear separation of concerns**: presentational components, feature hooks, and service wrappers.
+4. **Resource‑aware implementation**: evaluate network usage, server load, device memory and storage, and responsiveness before writing code.
 
 ### Tech Stack
 | Layer/Concern            | Library/Framework                |
