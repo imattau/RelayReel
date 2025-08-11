@@ -2,6 +2,7 @@ import Dexie, { Table } from 'dexie';
 import { BackgroundSyncPlugin } from 'workbox-background-sync';
 import { NetworkOnly } from 'workbox-strategies';
 import { registerRoute as wbRegisterRoute } from 'workbox-routing';
+import type { Event } from 'nostr-tools';
 export { precacheAndRoute as precache } from 'workbox-precaching';
 export { wbRegisterRoute as registerRoute };
 
@@ -22,17 +23,48 @@ export interface PendingUpload {
   file: Blob;
 }
 
+export interface ZapSplit {
+  address: string;
+  amount: number; // sats
+}
+
+export interface ZapMetadata {
+  creator: string;
+  splits: ZapSplit[];
+}
+
+export interface ZapReceipt {
+  id: string;
+  event: Event;
+  metadata: ZapMetadata;
+  createdAt: number;
+}
+
 class AppDatabase extends Dexie {
   videos!: Table<Video, string>;
   metadata!: Table<Metadata, string>;
   pendingUploads!: Table<PendingUpload, string>;
+  zapReceipts!: Table<ZapReceipt, string>;
 }
 
 const db = new AppDatabase('relayreel');
 db.version(1).stores({
   videos: '&id',
   metadata: '&id',
-  pendingUploads: '&id'
+  pendingUploads: '&id',
+});
+db.version(2).stores({
+  videos: '&id',
+  metadata: '&id',
+  pendingUploads: '&id',
+  zapReceipts: '&id, createdAt',
+});
+
+db.version(3).stores({
+  videos: '&id',
+  metadata: '&id',
+  pendingUploads: '&id',
+  zapReceipts: '&id, createdAt',
 });
 
 export async function saveVideo(
@@ -63,6 +95,14 @@ export async function dequeueUpload(): Promise<PendingUpload | undefined> {
     await db.pendingUploads.delete(first.id);
   }
   return first;
+}
+
+export async function saveZapReceipt(receipt: ZapReceipt): Promise<void> {
+  await db.zapReceipts.put(receipt);
+}
+
+export async function getZapReceipts(limit = 20): Promise<ZapReceipt[]> {
+  return db.zapReceipts.orderBy('createdAt').reverse().limit(limit).toArray();
 }
 
 const uploadSync = new BackgroundSyncPlugin('pendingUploads', {
