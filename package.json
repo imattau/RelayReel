@@ -12,10 +12,16 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "dexie": "^4.0.11",
     "next": "^15.4.6",
+    "next-pwa": "^5.6.0",
     "nostr-tools": "^2",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.1.1",
+    "workbox-background-sync": "^7.3.0",
+    "workbox-precaching": "^7.3.0",
+    "workbox-routing": "^7.3.0",
+    "workbox-strategies": "^7.3.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.54.2",
