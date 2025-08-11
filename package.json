@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "next": "^15.4.6",
+    "nostr-tools": "^2",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },
