@@ -1,4 +1,11 @@
-import { SimplePool, verifyEvent, type Event, type Filter, type UnsignedEvent, type EventTemplate } from 'nostr-tools';
+import {
+  SimplePool,
+  verifyEvent,
+  type Event,
+  type Filter,
+  type UnsignedEvent,
+  type EventTemplate,
+} from 'nostr-tools';
 
 /** Minimal signer interface implemented by both NIP-07 and NIP-46 signers. */
 interface SignerLike {
@@ -26,6 +33,14 @@ class NostrService {
   private pool: SimplePool;
   private relays: Set<string> = new Set();
   private signer?: Nip07Signer | Nip46Signer;
+
+  // Track active queries to avoid duplicate relay calls
+  private activeQueries = new Map<string, Promise<Event[]>>();
+
+  // Token bucket limiting concurrent operations per relay
+  private maxConcurrentPerRelay = 2;
+  private relayTokens = new Map<string, number>();
+  private relayQueues = new Map<string, Array<() => void>>();
 
   private constructor() {
     this.pool = new SimplePool();
@@ -73,23 +88,124 @@ class NostrService {
     }
     const { pubkey: _pubkey, ...template } = event;
     const signed = await this.signer.signEvent(template as EventTemplate);
-    await Promise.all(this.pool.publish([...this.relays], signed));
+    await this.runWithRelayLimit([...this.relays], (url) =>
+      this.pool.publish([url], signed)[0]
+    );
     return signed;
   }
 
-  /** Subscribe to a set of filters across all connected relays. */
-  subscribe(filters: Filter[], handlers: SubscriptionHandlers): () => void {
-    const sub = this.pool.subscribeMany([...this.relays], filters, {
-      onevent: handlers.onEvent,
-      oneose: handlers.onEose,
-      onclose: handlers.onClose,
+  /**
+   * Subscribe to a set of filters across all connected relays.
+   * Optionally debounce events for components tolerant to delayed updates.
+   */
+  async subscribe(
+    filters: Filter[],
+    handlers: SubscriptionHandlers,
+    debounceMs = 0
+  ): Promise<() => void> {
+    const relayList = [...this.relays];
+    const closers: Array<() => void> = [];
+
+    const onevent = this.createDebouncedHandler(handlers.onEvent, debounceMs);
+
+    await this.runWithRelayLimit(relayList, async (url) => {
+      const sub = this.pool.subscribeMany([url], filters, {
+        onevent,
+        oneose: handlers.onEose,
+        onclose: handlers.onClose,
+      });
+      closers.push(() => sub.close());
     });
-    return () => sub.close();
+
+    return () => closers.forEach((close) => close());
+  }
+
+  /**
+   * Query events with given filters.
+   * Identical concurrent queries reuse the same in-flight Promise.
+   */
+  async query(filters: Filter[]): Promise<Event[]> {
+    const key = JSON.stringify(filters);
+    const existing = this.activeQueries.get(key);
+    if (existing) return existing;
+
+    const promise = (async () => {
+      const results = await Promise.all(
+        filters.map((f) => this.pool.querySync([...this.relays], f))
+      );
+      return results.flat();
+    })();
+
+    this.activeQueries.set(key, promise);
+    try {
+      return await promise;
+    } finally {
+      this.activeQueries.delete(key);
+    }
   }
 
   /** Verify the signature of an event. */
   verify(event: Event): boolean {
     return verifyEvent(event);
+  }
+
+  // Utility: execute tasks with per-relay token buckets
+  private schedule<T>(url: string, task: () => Promise<T>): Promise<T> {
+    if (!this.relayTokens.has(url)) {
+      this.relayTokens.set(url, this.maxConcurrentPerRelay);
+      this.relayQueues.set(url, []);
+    }
+
+    return new Promise((resolve, reject) => {
+      const run = () => {
+        const tokens = this.relayTokens.get(url)!;
+        if (tokens > 0) {
+          this.relayTokens.set(url, tokens - 1);
+          task()
+            .then(resolve)
+            .catch(reject)
+            .finally(() => {
+              this.relayTokens.set(
+                url,
+                (this.relayTokens.get(url) || 0) + 1
+              );
+              const queue = this.relayQueues.get(url)!;
+              if (queue.length > 0) {
+                const next = queue.shift();
+                next && next();
+              }
+            });
+        } else {
+          this.relayQueues.get(url)!.push(run);
+        }
+      };
+      run();
+    });
+  }
+
+  private runWithRelayLimit<T>(
+    urls: string[],
+    task: (url: string) => Promise<T>
+  ): Promise<T[]> {
+    return Promise.all(urls.map((url) => this.schedule(url, () => task(url))));
+  }
+
+  private createDebouncedHandler(
+    handler: (event: Event) => void,
+    ms: number
+  ): (event: Event) => void {
+    if (ms <= 0) return handler;
+    let timeout: NodeJS.Timeout | undefined;
+    const buffer: Event[] = [];
+    return (event: Event) => {
+      buffer.push(event);
+      if (!timeout) {
+        timeout = setTimeout(() => {
+          buffer.splice(0).forEach((e) => handler(e));
+          timeout = undefined;
+        }, ms);
+      }
+    };
   }
 }
 
