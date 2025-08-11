@@ -40,7 +40,7 @@ src/
 ```
 
 ### Core Features
-1. **Swipe Feed**: Vertical carousel of video clips, preloading next/prev items for smooth transitions.
+1. **Swipe Feed**: Vertical carousel of video clips, preloading next/prev items for smooth transitions. Feed requests must reuse active filters and deduplicate network calls to stay resource-aware.
 2. **Video Overlay**: Creator avatar, caption, like/comment/share and Zap button.
 3. **Zap Payments**: Nostr-based lightning payments with zap receipts and total display.
 4. **Upload Flow**: File capture, upload to storage/CDN, publish metadata on Nostr.
