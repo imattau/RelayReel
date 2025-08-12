@@ -6,6 +6,8 @@ import {
   type UnsignedEvent,
   type EventTemplate,
 } from 'nostr-tools';
+import pLimit from 'p-limit';
+import debounce from 'lodash.debounce';
 
 /** Minimal signer interface implemented by both NIP-07 and NIP-46 signers. */
 interface SignerLike {
@@ -37,10 +39,9 @@ class NostrService {
   // Track active queries to avoid duplicate relay calls
   private activeQueries = new Map<string, Promise<Event[]>>();
 
-  // Token bucket limiting concurrent operations per relay
+  // Limit concurrent operations per relay
   private maxConcurrentPerRelay = 2;
-  private relayTokens = new Map<string, number>();
-  private relayQueues = new Map<string, Array<() => void>>();
+  private relayLimiters = new Map<string, ReturnType<typeof pLimit>>();
 
   private constructor() {
     this.pool = new SimplePool();
@@ -154,45 +155,22 @@ class NostrService {
     return verifyEvent(event);
   }
 
-  // Utility: execute tasks with per-relay token buckets
-  private schedule<T>(url: string, task: () => Promise<T>): Promise<T> {
-    if (!this.relayTokens.has(url)) {
-      this.relayTokens.set(url, this.maxConcurrentPerRelay);
-      this.relayQueues.set(url, []);
+  private getLimiter(url: string) {
+    let limiter = this.relayLimiters.get(url);
+    if (!limiter) {
+      limiter = pLimit(this.maxConcurrentPerRelay);
+      this.relayLimiters.set(url, limiter);
     }
-
-    return new Promise((resolve, reject) => {
-      const run = () => {
-        const tokens = this.relayTokens.get(url)!;
-        if (tokens > 0) {
-          this.relayTokens.set(url, tokens - 1);
-          task()
-            .then(resolve)
-            .catch(reject)
-            .finally(() => {
-              this.relayTokens.set(
-                url,
-                (this.relayTokens.get(url) || 0) + 1
-              );
-              const queue = this.relayQueues.get(url)!;
-              if (queue.length > 0) {
-                const next = queue.shift();
-                next && next();
-              }
-            });
-        } else {
-          this.relayQueues.get(url)!.push(run);
-        }
-      };
-      run();
-    });
+    return limiter;
   }
 
   private runWithRelayLimit<T>(
     urls: string[],
     task: (url: string) => Promise<T>
   ): Promise<T[]> {
-    return Promise.all(urls.map((url) => this.schedule(url, () => task(url))));
+    return Promise.all(
+      urls.map((url) => this.getLimiter(url)(() => task(url)))
+    );
   }
 
   private createDebouncedHandler(
@@ -200,16 +178,13 @@ class NostrService {
     ms: number
   ): (event: Event) => void {
     if (ms <= 0) return handler;
-    let timeout: NodeJS.Timeout | undefined;
     const buffer: Event[] = [];
+    const flush = debounce(() => {
+      buffer.splice(0).forEach((e) => handler(e));
+    }, ms);
     return (event: Event) => {
       buffer.push(event);
-      if (!timeout) {
-        timeout = setTimeout(() => {
-          buffer.splice(0).forEach((e) => handler(e));
-          timeout = undefined;
-        }, ms);
-      }
+      flush();
     };
   }
 }
