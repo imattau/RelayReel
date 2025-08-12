@@ -132,13 +132,14 @@ export const useCommentsStore = create<CommentsState>((set, get) => ({
 export default function useComments(rootId: string) {
   const { comments, loadComments, addComment, replyTo } = useCommentsStore();
   const setRoot = useCommentsStore((s) => s.setRoot);
+  const cleanup = () => {
+    setRoot('').catch(() => {});
+  };
   useEffect(() => {
     setRoot(rootId).catch(() => {});
-    return () => {
-      setRoot('').catch(() => {});
-    };
+    return cleanup;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rootId]);
-  return { comments, loadComments, addComment, replyTo };
+  return { comments, loadComments, addComment, replyTo, cleanup };
 }
 
