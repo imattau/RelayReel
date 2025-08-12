@@ -32,6 +32,38 @@ const resultsCache = new Map<string, Event[]>();
 // Track active subscription so we can clean up on unmount or filter change
 let activeUnsub: (() => void) | undefined;
 
+const SESSION_PREFIX = 'feedCache:';
+const MAX_SESSION_EVENTS = 20;
+
+function persistSession(): void {
+  const { key, metadata, currentIndex } = useVideoFeedStore.getState();
+  if (typeof sessionStorage !== 'undefined' && key) {
+    const limited = metadata.slice(0, MAX_SESSION_EVENTS);
+    sessionStorage.setItem(
+      SESSION_PREFIX + key,
+      JSON.stringify({ metadata: limited, currentIndex })
+    );
+  }
+}
+
+function loadSession(key: string): { metadata: Event[]; currentIndex: number } | undefined {
+  if (typeof sessionStorage === 'undefined') return undefined;
+  try {
+    const raw = sessionStorage.getItem(SESSION_PREFIX + key);
+    return raw ? JSON.parse(raw) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function clearSession(): void {
+  if (typeof sessionStorage === 'undefined') return;
+  for (let i = sessionStorage.length - 1; i >= 0; i--) {
+    const k = sessionStorage.key(i);
+    if (k?.startsWith(SESSION_PREFIX)) sessionStorage.removeItem(k);
+  }
+}
+
 function preloadAround(idx: number, events: Event[]): void {
   const nextUrl = events[idx + 1]?.content;
   if (nextUrl) preloadVideo(nextUrl);
@@ -55,8 +87,11 @@ export const useVideoFeedStore = create<FeedState>((set, get) => ({
     clearPreloadedVideos();
 
     let cached = resultsCache.get(key);
-    set({ key, currentIndex: 0, metadata: cached ?? [] });
-    preloadAround(0, cached ?? []);
+    let session = !cached ? loadSession(key) : undefined;
+    if (!cached && session) cached = session.metadata;
+    set({ key, currentIndex: session?.currentIndex ?? 0, metadata: cached ?? [] });
+    preloadAround(session?.currentIndex ?? 0, cached ?? []);
+    persistSession();
 
     await NostrService.connect(DEFAULT_RELAYS);
 
@@ -71,6 +106,7 @@ export const useVideoFeedStore = create<FeedState>((set, get) => ({
       resultsCache.set(key, cached);
       set({ metadata: cached });
       preloadAround(0, cached);
+      persistSession();
     }
 
     activeUnsub = await NostrService.subscribe(filters, {
@@ -83,8 +119,10 @@ export const useVideoFeedStore = create<FeedState>((set, get) => ({
             const next = [...state.metadata, e];
             resultsCache.set(key, next);
             preloadAround(state.currentIndex, next);
-            return { metadata: next };
+            const updated = { metadata: next };
+            return updated;
           });
+          persistSession();
         });
       }
     });
@@ -96,6 +134,7 @@ export const useVideoFeedStore = create<FeedState>((set, get) => ({
       clearPreloadedVideos();
       set({ currentIndex: nextIndex });
       preloadAround(nextIndex, metadata);
+      persistSession();
     }
   },
   prev() {
@@ -105,6 +144,7 @@ export const useVideoFeedStore = create<FeedState>((set, get) => ({
       clearPreloadedVideos();
       set({ currentIndex: prevIndex });
       preloadAround(prevIndex, metadata);
+      persistSession();
     }
   }
 }));
@@ -112,6 +152,7 @@ export const useVideoFeedStore = create<FeedState>((set, get) => ({
 export function __clearFeedCache(): void {
   resultsCache.clear();
   clearPreloadedVideos();
+  clearSession();
 }
 
 export default function useVideoFeed(filters: Filter[]): {
