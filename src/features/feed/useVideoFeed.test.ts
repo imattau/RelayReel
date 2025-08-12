@@ -28,11 +28,13 @@ const sampleEvents: Event[] = [
 const filters: Filter[] = [{ kinds: [1] }];
 
 let connectSpy: any;
+let querySpy: any;
 
 beforeEach(() => {
   useVideoFeedStore.setState({ metadata: [], currentIndex: 0, key: undefined });
   __clearFeedCache();
   connectSpy = vi.spyOn(NostrService, 'connect').mockResolvedValue();
+  querySpy = vi.spyOn(NostrService, 'query').mockResolvedValue(sampleEvents);
   vi.spyOn(videoService, 'isValidVideoUrl').mockResolvedValue(true);
 });
 
@@ -43,24 +45,17 @@ afterEach(() => {
 test('setFilters caches results and avoids duplicate subscriptions', async () => {
   const subscribe = vi
     .spyOn(NostrService, 'subscribe')
-    .mockImplementation(async (_filters, handlers) => {
-      sampleEvents.forEach((e) => handlers.onEvent(e));
-      handlers.onEose?.();
-      return () => {};
-    });
+    .mockResolvedValue(() => {});
   const { setFilters } = useVideoFeedStore.getState();
   await setFilters(filters);
   await setFilters(filters);
   expect(subscribe).toHaveBeenCalledTimes(1);
   expect(connectSpy).toHaveBeenCalledTimes(1);
+  expect(querySpy).toHaveBeenCalledTimes(1);
 });
 
 test('next and prev update index and preload videos', async () => {
-  vi.spyOn(NostrService, 'subscribe').mockImplementation(async (_f, handlers) => {
-    sampleEvents.forEach((e) => handlers.onEvent(e));
-    handlers.onEose?.();
-    return () => {};
-  });
+  vi.spyOn(NostrService, 'subscribe').mockResolvedValue(() => {});
   const preloadSpy = vi
     .spyOn(videoService, 'preloadVideo')
     .mockImplementation(() => {});
@@ -76,11 +71,7 @@ test('next and prev update index and preload videos', async () => {
 });
 
 test('invalid video URLs are ignored', async () => {
-  vi.spyOn(NostrService, 'subscribe').mockImplementation(async (_f, handlers) => {
-    handlers.onEvent(sampleEvents[0]);
-    handlers.onEvent({ ...sampleEvents[1], id: 'bad', content: 'https://example.com/notvideo' });
-    return () => {};
-  });
+  vi.spyOn(NostrService, 'subscribe').mockResolvedValue(() => {});
   (videoService.isValidVideoUrl as any)
     .mockResolvedValueOnce(true)
     .mockResolvedValueOnce(false);
