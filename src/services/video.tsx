@@ -111,3 +111,26 @@ export function createPlayer(
   return { Player, load, play, pause, seek, preload };
 }
 
+// Track preloaded video URLs to avoid duplicate DOM nodes
+const preloaded = new Set<string>();
+
+/** Preload a single video URL using a <link rel="preload"> tag. */
+export function preloadVideo(url?: string): void {
+  if (!url || preloaded.has(url)) return;
+  const link = document.createElement("link");
+  link.rel = "preload";
+  link.as = "video";
+  link.href = url;
+  document.head.appendChild(link);
+  preloaded.add(url);
+}
+
+/** Clear preloaded video links (used in tests). */
+export function clearPreloadedVideos(): void {
+  preloaded.clear();
+  Array.from(
+    document.head.querySelectorAll('link[rel="preload"][as="video"]')
+  ).forEach((el) => el.parentElement?.removeChild(el));
+}
+
+

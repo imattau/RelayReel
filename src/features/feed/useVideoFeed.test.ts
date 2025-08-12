@@ -1,6 +1,7 @@
 import { beforeEach, afterEach, expect, test, vi } from 'vitest';
 import type { Event, Filter } from 'nostr-tools';
 import NostrService from '../../services/nostr';
+import * as videoService from '../../services/video';
 import { useVideoFeedStore, __clearFeedCache } from './useVideoFeed';
 
 const sampleEvents: Event[] = [
@@ -27,7 +28,7 @@ const sampleEvents: Event[] = [
 const filters: Filter[] = [{ kinds: [1] }];
 
 beforeEach(() => {
-  useVideoFeedStore.setState({ events: [], index: 0, key: undefined });
+  useVideoFeedStore.setState({ metadata: [], currentIndex: 0, key: undefined });
   __clearFeedCache();
 });
 
@@ -35,30 +36,37 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-test('setFilters caches results and avoids duplicate queries', async () => {
-  const query = vi.spyOn(NostrService, 'query').mockResolvedValue(sampleEvents);
+test('setFilters caches results and avoids duplicate subscriptions', async () => {
+  const subscribe = vi
+    .spyOn(NostrService, 'subscribe')
+    .mockImplementation(async (_filters, handlers) => {
+      sampleEvents.forEach((e) => handlers.onEvent(e));
+      handlers.onEose?.();
+      return () => {};
+    });
   const { setFilters } = useVideoFeedStore.getState();
   await setFilters(filters);
   await setFilters(filters);
-  expect(query).toHaveBeenCalledTimes(1);
+  expect(subscribe).toHaveBeenCalledTimes(1);
 });
 
-test('next and prev update index and preload links', async () => {
-  vi.spyOn(NostrService, 'query').mockResolvedValue(sampleEvents);
+test('next and prev update index and preload videos', async () => {
+  vi.spyOn(NostrService, 'subscribe').mockImplementation(async (_f, handlers) => {
+    sampleEvents.forEach((e) => handlers.onEvent(e));
+    handlers.onEose?.();
+    return () => {};
+  });
+  const preloadSpy = vi
+    .spyOn(videoService, 'preloadVideo')
+    .mockImplementation(() => {});
   const { setFilters, next, prev } = useVideoFeedStore.getState();
   await setFilters(filters);
-  expect(useVideoFeedStore.getState().index).toBe(0);
-  // link for next video should be preloaded
-  expect(
-    document.head.querySelector('link[rel="preload"][href="https://example.com/b.mp4"]')
-  ).toBeTruthy();
+  expect(useVideoFeedStore.getState().currentIndex).toBe(0);
+  expect(preloadSpy).toHaveBeenCalledWith('https://example.com/b.mp4');
   next();
-  expect(useVideoFeedStore.getState().index).toBe(1);
-  // prev link should now be preloaded
-  expect(
-    document.head.querySelector('link[rel="preload"][href="https://example.com/a.mp4"]')
-  ).toBeTruthy();
+  expect(useVideoFeedStore.getState().currentIndex).toBe(1);
+  expect(preloadSpy).toHaveBeenCalledWith('https://example.com/a.mp4');
   prev();
-  expect(useVideoFeedStore.getState().index).toBe(0);
+  expect(useVideoFeedStore.getState().currentIndex).toBe(0);
 });
 
