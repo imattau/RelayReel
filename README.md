@@ -1,6 +1,13 @@
 # RelayReel
 Nostr based short videos
 
+## Development
+Start the Next.js dev server on all network interfaces:
+
+```bash
+pnpm dev
+```
+
 ## Feature Hook Usage
 - **useAuth**: establishes a signer (browser NIP-07 or remote NIP-46) and connects to the user's preferred relays via `NostrService.connect`.
 - **useVideoFeed**: fetches and listens for video events by calling `NostrService.subscribe` with feed filters. Components that can tolerate delayed updates may pass a debounce interval to avoid rapid re-renders.
