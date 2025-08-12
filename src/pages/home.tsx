@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Filter } from 'nostr-tools';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import useVideoFeed from '@/features/feed/useVideoFeed';
 import { createPlayer } from '@/services/video';
 import { CreatorInfo, ActionButtons } from '@/components/video';
@@ -9,6 +9,15 @@ import BottomNav from '@/components/nav/BottomNav';
 export default function HomePage() {
   const filters = useMemo<Filter[]>(() => [{ kinds: [1] }], []);
   const { currentVideo, next, prev } = useVideoFeed(filters);
+  const [direction, setDirection] = useState(0);
+  const handleNext = useCallback(() => {
+    setDirection(1);
+    next();
+  }, [next]);
+  const handlePrev = useCallback(() => {
+    setDirection(-1);
+    prev();
+  }, [prev]);
   const creatorTag = currentVideo?.tags.find((t) => t[0] === 'p');
   const captionTag = currentVideo?.tags.find((t) => t[0] === 'caption');
   const creator = creatorTag?.[1] || currentVideo?.pubkey || '';
@@ -16,8 +25,8 @@ export default function HomePage() {
 
   const videoRef = useRef<HTMLVideoElement>(null!);
   const { Player, load, play, pause, seek } = useMemo(
-    () => createPlayer(videoRef, { onEnded: next }),
-    [next],
+    () => createPlayer(videoRef, { onEnded: handleNext }),
+    [handleNext],
   );
   const [playing, setPlaying] = useState(false);
   const [indicator, setIndicator] = useState<string | null>(null);
@@ -35,12 +44,12 @@ export default function HomePage() {
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowDown') next();
-      if (e.key === 'ArrowUp') prev();
+      if (e.key === 'ArrowDown') handleNext();
+      if (e.key === 'ArrowUp') handlePrev();
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [next, prev]);
+  }, [handleNext, handlePrev]);
 
   const touchStart = useRef({ x: 0, y: 0, time: 0 });
   const longPress = useRef(false);
@@ -103,9 +112,9 @@ export default function HomePage() {
     }
     if (Math.abs(dy) > 50 && Math.abs(dy) > Math.abs(dx)) {
       if (dy < 0) {
-        next();
+        handleNext();
       } else {
-        prev();
+        handlePrev();
       }
       return;
     }
@@ -132,35 +141,57 @@ export default function HomePage() {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
       >
-        {currentVideo ? (
-          <div className="relative h-full w-full overflow-hidden">
-            <Player />
-            <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
-              <CreatorInfo avatarUrl={undefined} creator={creator} caption={caption} />
-              <div className="flex justify-end p-2">
-                <div className="pointer-events-auto">
-                  <ActionButtons
-                    liked={false}
-                    likeCount={0}
-                    commentCount={0}
-                    zapTotal={0}
-                    onLike={() => {}}
-                    onComment={() => {}}
-                    onShare={() => {}}
-                    onZap={() => {}}
-                  />
+        <AnimatePresence initial={false} custom={direction}>
+          {currentVideo ? (
+            <motion.div
+              key={currentVideo.id}
+              className="relative h-full w-full overflow-hidden"
+              custom={direction}
+              variants={{
+                enter: (dir: number) => ({ y: dir * 100, opacity: 0 }),
+                center: { y: 0, opacity: 1 },
+                exit: (dir: number) => ({ y: dir * -100, opacity: 0 }),
+              }}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.3 }}
+            >
+              <Player />
+              <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-between">
+                <CreatorInfo avatarUrl={undefined} creator={creator} caption={caption} />
+                <div className="flex justify-end p-2">
+                  <div className="pointer-events-auto">
+                    <ActionButtons
+                      liked={false}
+                      likeCount={0}
+                      commentCount={0}
+                      zapTotal={0}
+                      onLike={() => {}}
+                      onComment={() => {}}
+                      onShare={() => {}}
+                      onZap={() => {}}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-            {indicator && (
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-white text-3xl">
-                {indicator}
-              </div>
-            )}
-          </div>
-        ) : (
-          <p className="flex h-full items-center justify-center text-white">Loading...</p>
-        )}
+              {indicator && (
+                <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center text-white text-3xl">
+                  {indicator}
+                </div>
+              )}
+            </motion.div>
+          ) : (
+            <motion.p
+              key="loading"
+              className="flex h-full items-center justify-center text-white"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+            >
+              Loading...
+            </motion.p>
+          )}
+        </AnimatePresence>
       </motion.div>
       <BottomNav />
     </>
