@@ -3,10 +3,16 @@ import type { Filter } from 'nostr-tools';
 import { motion } from 'framer-motion';
 import useVideoFeed from '@/features/feed/useVideoFeed';
 import { createPlayer } from '@/services/video';
+import { CreatorInfo, ActionButtons } from '@/components/video';
+import BottomNav from '@/components/nav/BottomNav';
 
 export default function HomePage() {
   const filters = useMemo<Filter[]>(() => [{ kinds: [1] }], []);
   const { currentVideo, next, prev } = useVideoFeed(filters);
+  const creatorTag = currentVideo?.tags.find((t) => t[0] === 'p');
+  const captionTag = currentVideo?.tags.find((t) => t[0] === 'caption');
+  const creator = creatorTag?.[1] || currentVideo?.pubkey || '';
+  const caption = captionTag?.[1] || '';
 
   const videoRef = useRef<HTMLVideoElement>(null!);
   const { Player, load, play, pause, seek } = useMemo(
@@ -84,13 +90,23 @@ export default function HomePage() {
     }
   };
 
-  const onPointerUp: React.PointerEventHandler<HTMLDivElement> = () => {
+  const onPointerUp: React.PointerEventHandler<HTMLDivElement> = (e) => {
     clearTimeout(longPressTimer.current);
+    const dy = e.clientY - touchStart.current.y;
+    const dx = e.clientX - touchStart.current.x;
     if (longPress.current) {
       videoRef.current.playbackRate = 1;
       setIndicator(null);
       longPress.current = false;
       scrubbing.current = false;
+      return;
+    }
+    if (Math.abs(dy) > 50 && Math.abs(dy) > Math.abs(dx)) {
+      if (dy < 0) {
+        next();
+      } else {
+        prev();
+      }
       return;
     }
     const elapsed = Date.now() - touchStart.current.time;
@@ -108,36 +124,46 @@ export default function HomePage() {
     }
   };
 
-  const onPanEnd = (_: any, info: { offset: { y: number } }) => {
-    if (longPress.current) return;
-    if (info.offset.y < -50) {
-      next();
-    } else if (info.offset.y > 50) {
-      prev();
-    }
-  };
-
   return (
-    <motion.div
-      className="h-screen w-screen bg-black"
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPanEnd={onPanEnd}
-    >
-      {currentVideo ? (
-        <div className="relative h-full w-full">
-          <Player />
-          {indicator && (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-white text-3xl">
-              {indicator}
+    <>
+      <motion.div
+        className="h-screen w-screen bg-black touch-none"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+      >
+        {currentVideo ? (
+          <div className="relative h-full w-full overflow-hidden">
+            <Player />
+            <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
+              <CreatorInfo avatarUrl={undefined} creator={creator} caption={caption} />
+              <div className="flex justify-end p-2">
+                <div className="pointer-events-auto">
+                  <ActionButtons
+                    liked={false}
+                    likeCount={0}
+                    commentCount={0}
+                    zapTotal={0}
+                    onLike={() => {}}
+                    onComment={() => {}}
+                    onShare={() => {}}
+                    onZap={() => {}}
+                  />
+                </div>
+              </div>
             </div>
-          )}
-        </div>
-      ) : (
-        <p className="flex h-full items-center justify-center text-white">Loading...</p>
-      )}
-    </motion.div>
+            {indicator && (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-white text-3xl">
+                {indicator}
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="flex h-full items-center justify-center text-white">Loading...</p>
+        )}
+      </motion.div>
+      <BottomNav />
+    </>
   );
 }
 
