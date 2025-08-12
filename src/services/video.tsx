@@ -134,4 +134,35 @@ export function clearPreloadedVideos(): void {
   ).forEach((el) => el.parentElement?.removeChild(el));
 }
 
+const urlValidityCache = new Map<string, boolean>();
+
+/** Validate that a URL exists and serves video content. */
+export async function isValidVideoUrl(url: string): Promise<boolean> {
+  try {
+    const parsed = new URL(url);
+    if (!['http:', 'https:'].includes(parsed.protocol)) return false;
+  } catch {
+    return false;
+  }
+
+  const cached = urlValidityCache.get(url);
+  if (cached !== undefined) return cached;
+
+  try {
+    const res = await fetch(url, { method: 'HEAD' });
+    const type = res.headers.get('content-type') ?? '';
+    const valid = res.ok && type.startsWith('video/');
+    urlValidityCache.set(url, valid);
+    return valid;
+  } catch {
+    urlValidityCache.set(url, false);
+    return false;
+  }
+}
+
+// Testing utility
+export function __clearVideoUrlCache(): void {
+  urlValidityCache.clear();
+}
+
 

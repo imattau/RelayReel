@@ -2,7 +2,11 @@ import React from "react";
 import { act, render } from "@testing-library/react";
 import ReactPlayer from "react-player";
 import { vi, describe, it, expect } from "vitest";
-import { createPlayer } from "./video";
+import {
+  createPlayer,
+  isValidVideoUrl,
+  __clearVideoUrlCache
+} from "./video";
 
 vi.mock("react-player", () => {
   return {
@@ -62,6 +66,45 @@ describe("createPlayer", () => {
     expect((ref.current as any).pause).toHaveBeenCalled();
     seek(5);
     expect((ref.current as any).currentTime).toBe(5);
+  });
+});
+
+describe("isValidVideoUrl", () => {
+  beforeEach(() => {
+    __clearVideoUrlCache();
+    (globalThis.fetch as any) = vi.fn();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns true for reachable video URLs", async () => {
+    (fetch as any).mockResolvedValue({
+      ok: true,
+      headers: { get: () => "video/mp4" }
+    });
+    await expect(isValidVideoUrl("https://example.com/a.mp4")).resolves.toBe(
+      true
+    );
+    expect(fetch).toHaveBeenCalledWith("https://example.com/a.mp4", {
+      method: "HEAD"
+    });
+  });
+
+  it("returns false for non-video content", async () => {
+    (fetch as any).mockResolvedValue({
+      ok: true,
+      headers: { get: () => "text/html" }
+    });
+    await expect(isValidVideoUrl("https://example.com"))
+      .resolves.toBe(false);
+  });
+
+  it("returns false when request fails", async () => {
+    (fetch as any).mockRejectedValue(new Error("fail"));
+    await expect(isValidVideoUrl("https://example.com"))
+      .resolves.toBe(false);
   });
 });
 

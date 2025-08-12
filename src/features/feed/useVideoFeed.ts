@@ -3,7 +3,11 @@ import { useEffect } from 'react';
 import type { Event, Filter } from 'nostr-tools';
 import NostrService from '../../services/nostr';
 import { DEFAULT_RELAYS } from '../../config/relays';
-import { preloadVideo, clearPreloadedVideos } from '../../services/video';
+import {
+  preloadVideo,
+  clearPreloadedVideos,
+  isValidVideoUrl
+} from '../../services/video';
 
 /**
  * Hook managing a scrollable video feed.
@@ -55,18 +59,21 @@ export const useVideoFeedStore = create<FeedState>((set, get) => ({
     preloadAround(0, cached);
 
     await NostrService.connect(DEFAULT_RELAYS);
-    activeUnsub = await NostrService.subscribe(filters, {
-      onEvent: (e) => {
-        set((state) => {
-          if (state.key !== key) return state;
-          if (state.metadata.some((evt) => evt.id === e.id)) return state;
-          const next = [...state.metadata, e];
-          resultsCache.set(key, next);
-          preloadAround(state.currentIndex, next);
-          return { metadata: next };
-        });
-      }
-    });
+      activeUnsub = await NostrService.subscribe(filters, {
+        onEvent: (e) => {
+          void isValidVideoUrl(e.content).then((valid) => {
+            if (!valid) return;
+            set((state) => {
+              if (state.key !== key) return state;
+              if (state.metadata.some((evt) => evt.id === e.id)) return state;
+              const next = [...state.metadata, e];
+              resultsCache.set(key, next);
+              preloadAround(state.currentIndex, next);
+              return { metadata: next };
+            });
+          });
+        }
+      });
   },
   next() {
     const { currentIndex, metadata } = get();
