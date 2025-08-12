@@ -22,8 +22,13 @@ interface AuthState {
 
 let loginRequest: Promise<string> | undefined;
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   async login() {
+    const current = get();
+    if (current.signer && current.method === 'nip46' && current.pubkey) {
+      return current.pubkey;
+    }
+
     const nostr = (globalThis as any).nostr as Nip07Signer | undefined;
     if (!nostr || typeof nostr.getPublicKey !== 'function' || typeof nostr.signEvent !== 'function') {
       throw new Error('NIP-07 extension not available');
