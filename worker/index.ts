@@ -1,6 +1,14 @@
-import { precache, registerUploadRoute } from '../src/services/storage';
+import { registerUploadRoute } from '../src/services/storage';
+import { precacheAndRoute } from 'workbox-precaching';
 
-declare let self: ServiceWorkerGlobalScope;
+declare const self: ServiceWorkerGlobalScope & {
+  __WB_MANIFEST: Array<{ url: string; revision: string | null }>;
+};
 
-precache(self.__WB_MANIFEST);
+precacheAndRoute([
+  ...self.__WB_MANIFEST,
+  { url: '/', revision: null },
+  { url: '/favicon.ico', revision: null }
+]);
+
 registerUploadRoute();
