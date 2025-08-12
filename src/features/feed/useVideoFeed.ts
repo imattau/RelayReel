@@ -4,6 +4,15 @@ import type { Event, Filter } from 'nostr-tools';
 import NostrService from '../../services/nostr';
 import { preloadVideo, clearPreloadedVideos } from '../../services/video';
 
+/**
+ * Hook managing a scrollable video feed.
+ *
+ * Filters are subscribed through {@link NostrService} so new events stream in
+ * real time. Private feeds rely on an active signer from {@link useAuth}; if no
+ * signer is present, only public events are received. Retrieved metadata is
+ * cached in memory and can be persisted offline via the storage service.
+ */
+
 interface FeedState {
   metadata: Event[];
   currentIndex: number;
@@ -15,45 +24,8 @@ interface FeedState {
 
 // Cache resolved queries so repeated filter sets reuse network results
 const resultsCache = new Map<string, Event[]>();
-// Track in-flight requests to deduplicate concurrent calls
-const inflight = new Map<string, Promise<Event[]>>();
-async function fetchEvents(filters: Filter[]): Promise<Event[]> {
-  const key = JSON.stringify(filters);
-  const cached = resultsCache.get(key);
-  if (cached) return cached;
-
-  let promise = inflight.get(key);
-  if (!promise) {
-    promise = new Promise<Event[]>((resolve, reject) => {
-      const events: Event[] = [];
-      let unsub: (() => void) | undefined;
-      NostrService.subscribe(
-        filters,
-        {
-          onEvent: (e) => events.push(e),
-          onEose: () => {
-            unsub?.();
-            resolve(events);
-          },
-          onClose: () => {
-            unsub?.();
-            resolve(events);
-          }
-        },
-        300
-      )
-        .then((u) => {
-          unsub = u;
-        })
-        .catch(reject);
-    });
-    inflight.set(key, promise);
-  }
-  const events = await promise;
-  inflight.delete(key);
-  resultsCache.set(key, events);
-  return events;
-}
+// Track active subscription so we can clean up on unmount or filter change
+let activeUnsub: (() => void) | undefined;
 
 function preloadAround(idx: number, events: Event[]): void {
   const nextUrl = events[idx + 1]?.content;
@@ -69,15 +41,36 @@ export const useVideoFeedStore = create<FeedState>((set, get) => ({
   async setFilters(filters) {
     const key = JSON.stringify(filters);
     if (get().key === key) return;
-    set({ key, currentIndex: 0, metadata: [] });
-    const events = await fetchEvents(filters);
-    set({ metadata: events });
-    preloadAround(0, events);
+    // Clean up previous subscription and cached media
+    activeUnsub?.();
+    const prevKey = get().key;
+    if (prevKey) {
+      resultsCache.delete(prevKey);
+    }
+    clearPreloadedVideos();
+
+    const cached = resultsCache.get(key) ?? [];
+    set({ key, currentIndex: 0, metadata: cached });
+    preloadAround(0, cached);
+
+    activeUnsub = await NostrService.subscribe(filters, {
+      onEvent: (e) => {
+        set((state) => {
+          if (state.key !== key) return state;
+          if (state.metadata.some((evt) => evt.id === e.id)) return state;
+          const next = [...state.metadata, e];
+          resultsCache.set(key, next);
+          preloadAround(state.currentIndex, next);
+          return { metadata: next };
+        });
+      }
+    });
   },
   next() {
     const { currentIndex, metadata } = get();
     if (currentIndex < metadata.length - 1) {
       const nextIndex = currentIndex + 1;
+      clearPreloadedVideos();
       set({ currentIndex: nextIndex });
       preloadAround(nextIndex, metadata);
     }
@@ -86,6 +79,7 @@ export const useVideoFeedStore = create<FeedState>((set, get) => ({
     const { currentIndex, metadata } = get();
     if (currentIndex > 0) {
       const prevIndex = currentIndex - 1;
+      clearPreloadedVideos();
       set({ currentIndex: prevIndex });
       preloadAround(prevIndex, metadata);
     }
@@ -94,7 +88,6 @@ export const useVideoFeedStore = create<FeedState>((set, get) => ({
 
 export function __clearFeedCache(): void {
   resultsCache.clear();
-  inflight.clear();
   clearPreloadedVideos();
 }
 
@@ -109,6 +102,10 @@ export default function useVideoFeed(filters: Filter[]): {
     setFilters(filters).catch(() => {
       /* swallow errors so UI can handle empty feeds */
     });
+    return () => {
+      activeUnsub?.();
+      __clearFeedCache();
+    };
   }, [filters, setFilters]);
 
   return {
