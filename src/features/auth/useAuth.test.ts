@@ -28,3 +28,13 @@ test('login requests pubkey and signs once, storing session', async () => {
   expect(useAuthStore.getState().pubkey).toBe('npub123');
   expect(useAuthStore.getState().method).toBe('nip07');
 });
+
+test('login returns remote pubkey when remote signer connected', async () => {
+  const remoteSigner = { getPublicKey: vi.fn(), signEvent: vi.fn() } as any;
+  useAuthStore.getState().setSigner('remote123', remoteSigner, 'nip46');
+
+  const { login } = useAuthStore.getState();
+  const pubkey = await login();
+
+  expect(pubkey).toBe('remote123');
+});
