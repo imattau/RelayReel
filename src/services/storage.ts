@@ -2,7 +2,8 @@ import Dexie, { Table } from 'dexie';
 import { BackgroundSyncPlugin } from 'workbox-background-sync';
 import { NetworkOnly } from 'workbox-strategies';
 import { registerRoute as wbRegisterRoute } from 'workbox-routing';
-import type { Event } from 'nostr-tools';
+import type { Event, UnsignedEvent } from 'nostr-tools';
+import NostrService from './nostr';
 export { precacheAndRoute as precache } from 'workbox-precaching';
 export { wbRegisterRoute as registerRoute };
 
@@ -21,6 +22,8 @@ export interface PendingUpload {
   id: string;
   endpoint: string;
   file: Blob;
+  creator: string;
+  caption: string;
 }
 
 export interface ZapSplit {
@@ -105,15 +108,37 @@ export async function getZapReceipts(limit = 20): Promise<ZapReceipt[]> {
   return db.zapReceipts.orderBy('createdAt').reverse().limit(limit).toArray();
 }
 
-const uploadSync = new BackgroundSyncPlugin('pendingUploads', {
-  onSync: async () => {
-    let next: PendingUpload | undefined;
-    // Retry uploads until queue empty
-    while ((next = await dequeueUpload())) {
-      await fetch(next.endpoint, { method: 'POST', body: next.file });
+export async function processPendingUploads(): Promise<void> {
+  let next: PendingUpload | undefined;
+  while ((next = await dequeueUpload())) {
+    try {
+      const res = await fetch(next.endpoint, {
+        method: 'POST',
+        body: next.file,
+        headers: { 'Content-Type': next.file.type }
+      });
+      if (!res.ok) throw new Error('Upload failed');
+      const { url } = await res.json();
+      const event: UnsignedEvent = {
+        pubkey: '',
+        kind: 1,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [
+          ['p', next.creator],
+          ['caption', next.caption]
+        ],
+        content: url
+      };
+      const signed = await NostrService.publish(event);
+      if (!NostrService.verify(signed)) throw new Error('Invalid event');
+    } catch {
+      await queueUpload(next);
+      break;
     }
   }
-});
+}
+
+let uploadSync: BackgroundSyncPlugin | undefined;
 
 const recordFailure = {
   fetchDidFail: async ({ request }: { request: Request }) => {
@@ -121,12 +146,19 @@ const recordFailure = {
     await queueUpload({
       id: crypto.randomUUID(),
       endpoint: request.url,
-      file: body
+      file: body,
+      creator: '',
+      caption: ''
     });
   }
 };
 
 export function registerUploadRoute(): void {
+  if (!uploadSync) {
+    uploadSync = new BackgroundSyncPlugin('pendingUploads', {
+      onSync: processPendingUploads
+    });
+  }
   wbRegisterRoute(
     ({ url }) => url.pathname.startsWith('/api/upload'),
     new NetworkOnly({ plugins: [uploadSync, recordFailure] }),
