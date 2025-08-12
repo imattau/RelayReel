@@ -1,17 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BunkerSigner, parseBunkerInput } from 'nostr-tools/nip46';
 import { generateSecretKey } from 'nostr-tools';
-
-function bytesToHex(bytes: Uint8Array): string {
-  return Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-}
-
-function hexToBytes(hex: string): Uint8Array {
-  const matches = hex.match(/.{1,2}/g) || [];
-  return Uint8Array.from(matches.map((b) => parseInt(b, 16)));
-}
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import NostrService from '../../services/nostr';
 import { useAuthStore } from './useAuth';
 
