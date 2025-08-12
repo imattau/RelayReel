@@ -1,11 +1,31 @@
 import Dexie, { Table } from 'dexie';
-import { BackgroundSyncPlugin } from 'workbox-background-sync';
-import { NetworkOnly } from 'workbox-strategies';
-import { registerRoute as wbRegisterRoute } from 'workbox-routing';
 import type { Event, UnsignedEvent } from 'nostr-tools';
 import NostrService from './nostr';
-export { precacheAndRoute as precache } from 'workbox-precaching';
-export { wbRegisterRoute as registerRoute };
+
+const DISABLE_WORKBOX = process.env.NEXT_PUBLIC_DISABLE_WORKBOX === 'true';
+
+let BackgroundSyncPlugin: any;
+let NetworkOnly: any;
+let wbRegisterRoute: any;
+let precacheAndRoute: any;
+
+async function loadWorkbox(): Promise<void> {
+  if (DISABLE_WORKBOX || wbRegisterRoute) return;
+  ({ BackgroundSyncPlugin } = await import('workbox-background-sync'));
+  ({ NetworkOnly } = await import('workbox-strategies'));
+  ({ registerRoute: wbRegisterRoute } = await import('workbox-routing'));
+  ({ precacheAndRoute } = await import('workbox-precaching'));
+}
+
+export async function precache(...args: any[]): Promise<void> {
+  await loadWorkbox();
+  if (!DISABLE_WORKBOX) precacheAndRoute(...args);
+}
+
+export async function registerRoute(...args: any[]): Promise<void> {
+  await loadWorkbox();
+  if (!DISABLE_WORKBOX) wbRegisterRoute(...args);
+}
 
 export interface Video {
   id: string;
@@ -138,7 +158,7 @@ export async function processPendingUploads(): Promise<void> {
   }
 }
 
-let uploadSync: BackgroundSyncPlugin | undefined;
+let uploadSync: any;
 
 const recordFailure = {
   fetchDidFail: async ({ request }: { request: Request }) => {
@@ -153,14 +173,16 @@ const recordFailure = {
   }
 };
 
-export function registerUploadRoute(): void {
+export async function registerUploadRoute(): Promise<void> {
+  await loadWorkbox();
+  if (DISABLE_WORKBOX) return;
   if (!uploadSync) {
     uploadSync = new BackgroundSyncPlugin('pendingUploads', {
       onSync: processPendingUploads
     });
   }
   wbRegisterRoute(
-    ({ url }) => url.pathname.startsWith('/api/upload'),
+    ({ url }: { url: URL }) => url.pathname.startsWith('/api/upload'),
     new NetworkOnly({ plugins: [uploadSync, recordFailure] }),
     'POST'
   );

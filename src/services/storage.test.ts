@@ -1,5 +1,7 @@
 import { describe, test, expect, vi } from 'vitest';
 
+process.env.NEXT_PUBLIC_DISABLE_WORKBOX = 'true';
+
 vi.mock('dexie', () => {
   class Table {
     private store = new Map<string, any>();
@@ -38,7 +40,7 @@ vi.mock('./nostr', () => ({
   default: { publish: vi.fn(), verify: vi.fn() }
 }));
 
-import * as storage from './storage';
+const storage = await import('./storage');
 import NostrService from './nostr';
 
 describe('processPendingUploads', () => {

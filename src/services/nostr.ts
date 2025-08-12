@@ -9,6 +9,8 @@ import {
 import pLimit from 'p-limit';
 import debounce from 'lodash.debounce';
 
+const DISABLE_NOSTR = process.env.NEXT_PUBLIC_DISABLE_NOSTR === 'true';
+
 /** Minimal signer interface implemented by both NIP-07 and NIP-46 signers. */
 interface SignerLike {
   getPublicKey(): Promise<string>;
@@ -59,14 +61,13 @@ class NostrService {
    * Connect to a set of relay URLs. Previous connections not in the new list are closed.
    */
   async connect(relayUrls: string[]): Promise<void> {
+    if (DISABLE_NOSTR) return;
     const next = new Set(relayUrls);
-    // Close dropped relays
     const toClose = [...this.relays].filter((r) => !next.has(r));
     if (toClose.length > 0) {
       this.pool.close(toClose);
       toClose.forEach((r) => this.relays.delete(r));
     }
-    // Ensure new connections
     await Promise.all(
       [...next].map(async (url) => {
         if (!this.relays.has(url)) {
@@ -89,6 +90,9 @@ class NostrService {
 
   /** Sign and publish an event to all connected relays. */
   async publish(event: UnsignedEvent): Promise<Event> {
+    if (DISABLE_NOSTR) {
+      return { ...(event as any), id: 'mock', sig: 'mock' } as Event;
+    }
     if (!this.signer) {
       throw new Error('no signer configured');
     }
@@ -109,6 +113,9 @@ class NostrService {
     handlers: SubscriptionHandlers,
     debounceMs = 0
   ): Promise<() => void> {
+    if (DISABLE_NOSTR) {
+      return () => {};
+    }
     const relayList = [...this.relays];
     const closers: Array<() => void> = [];
 
@@ -131,6 +138,7 @@ class NostrService {
    * Identical concurrent queries reuse the same in-flight Promise.
    */
   async query(filters: Filter[]): Promise<Event[]> {
+    if (DISABLE_NOSTR) return [];
     const key = JSON.stringify(filters);
     const existing = this.activeQueries.get(key);
     if (existing) return existing;
@@ -152,6 +160,7 @@ class NostrService {
 
   /** Verify the signature of an event. */
   verify(event: Event): boolean {
+    if (DISABLE_NOSTR) return true;
     return verifyEvent(event);
   }
 
