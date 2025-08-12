@@ -5,12 +5,21 @@ import { getZapReceipts } from '../../services/storage';
 import { parseZapEvent } from '../../services/lightning';
 import { useAuthStore } from '../auth/useAuth';
 
-interface ProfileState {
+/**
+ * Shape of the profile store returned by {@link useProfile}.
+ */
+export interface ProfileState {
+  /** Profile image URL */
   avatar?: string;
+  /** Short bio or description */
   bio?: string;
+  /** Sum of received zap amounts */
   zapTotal: number;
+  /** Fetch metadata and zap receipts for a given pubkey */
   loadProfile: (pubkey: string) => Promise<void>;
+  /** Publish updated profile metadata */
   updateProfile: (data: { avatar?: string; bio?: string }) => Promise<void>;
+  /** Clear profile state and sign the user out */
   signOut: () => void;
 }
 
@@ -71,6 +80,11 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   },
 }));
 
-export default function useProfile() {
+/**
+ * Access the profile store containing metadata and helpers.
+ *
+ * @returns {ProfileState} Current profile state and actions.
+ */
+export default function useProfile(): ProfileState {
   return useProfileStore();
 }
