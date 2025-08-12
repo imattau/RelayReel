@@ -7,7 +7,7 @@ export default function Home() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      router.replace('/feed');
+      router.replace('/home');
     }, 1000);
     return () => clearTimeout(timer);
   }, [router]);
