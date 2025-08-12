@@ -79,32 +79,17 @@ describe("isValidVideoUrl", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns true for reachable video URLs", async () => {
-    (fetch as any).mockResolvedValue({
-      ok: true,
-      headers: { get: () => "video/mp4" }
-    });
+  it("returns true for URLs with a known video extension", async () => {
     await expect(isValidVideoUrl("https://example.com/a.mp4")).resolves.toBe(
       true
     );
-    expect(fetch).toHaveBeenCalledWith("https://example.com/a.mp4", {
-      method: "HEAD"
-    });
+    expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("returns false for non-video content", async () => {
-    (fetch as any).mockResolvedValue({
-      ok: true,
-      headers: { get: () => "text/html" }
-    });
+  it("returns false when URL lacks a video extension", async () => {
     await expect(isValidVideoUrl("https://example.com"))
       .resolves.toBe(false);
-  });
-
-  it("returns false when request fails", async () => {
-    (fetch as any).mockRejectedValue(new Error("fail"));
-    await expect(isValidVideoUrl("https://example.com"))
-      .resolves.toBe(false);
+    expect(fetch).not.toHaveBeenCalled();
   });
 });
 

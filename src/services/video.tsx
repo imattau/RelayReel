@@ -141,6 +141,20 @@ export async function isValidVideoUrl(url: string): Promise<boolean> {
   try {
     const parsed = new URL(url);
     if (!['http:', 'https:'].includes(parsed.protocol)) return false;
+
+    // Basic extension check to avoid unnecessary network requests
+    const ext = parsed.pathname.split('.').pop()?.toLowerCase();
+    const validExts = ['mp4', 'webm', 'ogg', 'mov', 'm4v'];
+    if (!ext || !validExts.includes(ext)) {
+      urlValidityCache.set(url, false);
+      return false;
+    }
+
+    // Skip cross-origin validation to prevent CORS errors
+    if (typeof window !== 'undefined' && parsed.origin !== window.location.origin) {
+      urlValidityCache.set(url, true);
+      return true;
+    }
   } catch {
     return false;
   }
