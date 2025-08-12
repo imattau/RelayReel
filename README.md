@@ -1,6 +1,8 @@
 # RelayReel
 Nostr based short videos
 
+Visit the home feed at `/home`.
+
 ## Development
 Start the Next.js dev server on all network interfaces:
 

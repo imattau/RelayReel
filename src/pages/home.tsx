@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import useVideoFeed from '@/features/feed/useVideoFeed';
 import { createPlayer } from '@/services/video';
 
-export default function FeedPage() {
+export default function HomePage() {
   const filters = useMemo<Filter[]>(() => [{ kinds: [1] }], []);
   const { currentVideo, next, prev } = useVideoFeed(filters);
 
