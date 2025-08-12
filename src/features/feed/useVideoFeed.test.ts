@@ -33,6 +33,7 @@ beforeEach(() => {
   useVideoFeedStore.setState({ metadata: [], currentIndex: 0, key: undefined });
   __clearFeedCache();
   connectSpy = vi.spyOn(NostrService, 'connect').mockResolvedValue();
+  vi.spyOn(videoService, 'isValidVideoUrl').mockResolvedValue(true);
 });
 
 afterEach(() => {
@@ -72,5 +73,22 @@ test('next and prev update index and preload videos', async () => {
   expect(preloadSpy).toHaveBeenCalledWith('https://example.com/a.mp4');
   prev();
   expect(useVideoFeedStore.getState().currentIndex).toBe(0);
+});
+
+test('invalid video URLs are ignored', async () => {
+  vi.spyOn(NostrService, 'subscribe').mockImplementation(async (_f, handlers) => {
+    handlers.onEvent(sampleEvents[0]);
+    handlers.onEvent({ ...sampleEvents[1], id: 'bad', content: 'https://example.com/notvideo' });
+    return () => {};
+  });
+  (videoService.isValidVideoUrl as any)
+    .mockResolvedValueOnce(true)
+    .mockResolvedValueOnce(false);
+  const { setFilters } = useVideoFeedStore.getState();
+  await setFilters(filters);
+  await Promise.resolve();
+  const state = useVideoFeedStore.getState();
+  expect(state.metadata).toHaveLength(1);
+  expect(state.metadata[0].id).toBe('1');
 });
 
