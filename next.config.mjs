@@ -9,7 +9,13 @@ const withPWA = withPWAInit({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true
+  reactStrictMode: true,
+  webpack(config) {
+    // Disable code minification until upstream plugin resolves WebpackError issue
+    // to avoid build failures.
+    config.optimization.minimize = false;
+    return config;
+  }
 };
 
 export default withPWA(nextConfig);
