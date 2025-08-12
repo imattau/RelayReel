@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import useVideoFeed from '@/features/feed/useVideoFeed';
 import { createPlayer } from '@/services/video';
 import { CreatorInfo, ActionButtons } from '@/components/video';
-import BottomNav from '@/components/nav/BottomNav';
 
 export default function HomePage() {
   const filters = useMemo<Filter[]>(() => [{ kinds: [1] }], []);
@@ -134,67 +133,64 @@ export default function HomePage() {
   };
 
   return (
-    <>
-      <motion.div
-        className="h-screen w-screen bg-black touch-none"
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-      >
-        <AnimatePresence initial={false} custom={direction}>
-          {currentVideo ? (
-            <motion.div
-              key={currentVideo.id}
-              className="relative h-full w-full overflow-hidden"
-              custom={direction}
-              variants={{
-                enter: (dir: number) => ({ y: dir * 100, opacity: 0 }),
-                center: { y: 0, opacity: 1 },
-                exit: (dir: number) => ({ y: dir * -100, opacity: 0 }),
-              }}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{ duration: 0.3 }}
-            >
-              <Player />
-              <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-between">
-                <CreatorInfo avatarUrl={undefined} creator={creator} caption={caption} />
-                <div className="flex justify-end p-2">
-                  <div className="pointer-events-auto">
-                    <ActionButtons
-                      liked={false}
-                      likeCount={0}
-                      commentCount={0}
-                      zapTotal={0}
-                      onLike={() => {}}
-                      onComment={() => {}}
-                      onShare={() => {}}
-                      onZap={() => {}}
-                    />
-                  </div>
+    <motion.div
+      className="h-screen w-screen bg-black touch-none"
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+    >
+      <AnimatePresence initial={false} custom={direction}>
+        {currentVideo ? (
+          <motion.div
+            key={currentVideo.id}
+            className="relative h-full w-full overflow-hidden"
+            custom={direction}
+            variants={{
+              enter: (dir: number) => ({ y: dir * 100, opacity: 0 }),
+              center: { y: 0, opacity: 1 },
+              exit: (dir: number) => ({ y: dir * -100, opacity: 0 }),
+            }}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.3 }}
+          >
+            <Player />
+            <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-between">
+              <CreatorInfo avatarUrl={undefined} creator={creator} caption={caption} />
+              <div className="flex justify-end p-2">
+                <div className="pointer-events-auto">
+                  <ActionButtons
+                    liked={false}
+                    likeCount={0}
+                    commentCount={0}
+                    zapTotal={0}
+                    onLike={() => {}}
+                    onComment={() => {}}
+                    onShare={() => {}}
+                    onZap={() => {}}
+                  />
                 </div>
               </div>
-              {indicator && (
-                <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center text-white text-3xl">
-                  {indicator}
-                </div>
-              )}
-            </motion.div>
-          ) : (
-            <motion.p
-              key="loading"
-              className="flex h-full items-center justify-center text-white"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-            >
-              Loading...
-            </motion.p>
-          )}
-        </AnimatePresence>
-      </motion.div>
-      <BottomNav />
-    </>
+            </div>
+            {indicator && (
+              <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center text-white text-3xl">
+                {indicator}
+              </div>
+            )}
+          </motion.div>
+        ) : (
+          <motion.p
+            key="loading"
+            className="flex h-full items-center justify-center text-white"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            Loading...
+          </motion.p>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }
 
