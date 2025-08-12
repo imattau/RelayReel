@@ -7,6 +7,7 @@ let publishMock: any;
 
 beforeEach(() => {
   useReactionsStore.setState({ liked: new Set() });
+  localStorage.clear();
   publishMock?.mockRestore();
   publishMock = vi
     .spyOn(NostrService, 'publish')
