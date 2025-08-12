@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { EventTemplate } from 'nostr-tools';
 import NostrService, {
   type Nip07Signer,
   type Nip46Signer,
@@ -10,30 +11,42 @@ interface AuthState {
   pubkey?: string;
   method?: AuthMethod;
   signer?: Nip07Signer | Nip46Signer;
-  connectExtension: () => Promise<string>;
+  login: () => Promise<string>;
   logout: () => void;
-  setSigner: (pubkey: string, signer: Nip07Signer | Nip46Signer, method: AuthMethod) => void;
+  setSigner: (
+    pubkey: string,
+    signer: Nip07Signer | Nip46Signer,
+    method: AuthMethod
+  ) => void;
 }
 
-let nip07Request: Promise<string> | undefined;
+let loginRequest: Promise<string> | undefined;
 
 export const useAuthStore = create<AuthState>((set) => ({
-  async connectExtension() {
+  async login() {
     const nostr = (globalThis as any).nostr as Nip07Signer | undefined;
-    if (!nostr) {
+    if (!nostr || typeof nostr.getPublicKey !== 'function' || typeof nostr.signEvent !== 'function') {
       throw new Error('NIP-07 extension not available');
     }
-    if (!nip07Request) {
-      nip07Request = nostr.getPublicKey().then((pubkey) => {
+    if (!loginRequest) {
+      loginRequest = (async () => {
+        const pubkey = await nostr.getPublicKey();
+        // request signing permission with a lightweight dummy event
+        await nostr.signEvent({
+          kind: 27235,
+          created_at: Math.floor(Date.now() / 1000),
+          tags: [],
+          content: '',
+        } as EventTemplate);
         set({ pubkey, method: 'nip07', signer: nostr });
         NostrService.setSigner(nostr);
         return pubkey;
-      });
+      })();
     }
-    return nip07Request;
+    return loginRequest;
   },
   logout() {
-    nip07Request = undefined;
+    loginRequest = undefined;
     set({ pubkey: undefined, method: undefined, signer: undefined });
     NostrService.setSigner();
   },
