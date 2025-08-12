@@ -156,7 +156,7 @@ export default function HomePage() {
             transition={{ duration: 0.3 }}
           >
             <Player />
-            <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-between">
+            <div className="pointer-events-none absolute inset-0 z-30 flex flex-col justify-between">
               <CreatorInfo avatarUrl={undefined} creator={creator} caption={caption} />
               <div className="flex justify-end p-2">
                 <div className="pointer-events-auto">
@@ -174,7 +174,7 @@ export default function HomePage() {
               </div>
             </div>
             {indicator && (
-              <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center text-white text-3xl">
+              <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center text-white text-3xl">
                 {indicator}
               </div>
             )}
