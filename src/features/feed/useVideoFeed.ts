@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { useEffect } from 'react';
 import type { Event, Filter } from 'nostr-tools';
 import NostrService from '../../services/nostr';
+import { DEFAULT_RELAYS } from '../../config/relays';
 import { preloadVideo, clearPreloadedVideos } from '../../services/video';
 
 /**
@@ -53,6 +54,7 @@ export const useVideoFeedStore = create<FeedState>((set, get) => ({
     set({ key, currentIndex: 0, metadata: cached });
     preloadAround(0, cached);
 
+    await NostrService.connect(DEFAULT_RELAYS);
     activeUnsub = await NostrService.subscribe(filters, {
       onEvent: (e) => {
         set((state) => {
