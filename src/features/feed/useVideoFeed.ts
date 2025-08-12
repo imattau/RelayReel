@@ -2,10 +2,11 @@ import { create } from 'zustand';
 import { useEffect } from 'react';
 import type { Event, Filter } from 'nostr-tools';
 import NostrService from '../../services/nostr';
+import { preloadVideo, clearPreloadedVideos } from '../../services/video';
 
 interface FeedState {
-  events: Event[];
-  index: number;
+  metadata: Event[];
+  currentIndex: number;
   key?: string;
   setFilters: (filters: Filter[]) => Promise<void>;
   next: () => void;
@@ -16,9 +17,6 @@ interface FeedState {
 const resultsCache = new Map<string, Event[]>();
 // Track in-flight requests to deduplicate concurrent calls
 const inflight = new Map<string, Promise<Event[]>>();
-// Track preloaded URLs to avoid redundant DOM nodes
-const preloaded = new Set<string>();
-
 async function fetchEvents(filters: Filter[]): Promise<Event[]> {
   const key = JSON.stringify(filters);
   const cached = resultsCache.get(key);
@@ -26,7 +24,29 @@ async function fetchEvents(filters: Filter[]): Promise<Event[]> {
 
   let promise = inflight.get(key);
   if (!promise) {
-    promise = NostrService.query(filters);
+    promise = new Promise<Event[]>((resolve, reject) => {
+      const events: Event[] = [];
+      let unsub: (() => void) | undefined;
+      NostrService.subscribe(
+        filters,
+        {
+          onEvent: (e) => events.push(e),
+          onEose: () => {
+            unsub?.();
+            resolve(events);
+          },
+          onClose: () => {
+            unsub?.();
+            resolve(events);
+          }
+        },
+        300
+      )
+        .then((u) => {
+          unsub = u;
+        })
+        .catch(reject);
+    });
     inflight.set(key, promise);
   }
   const events = await promise;
@@ -35,47 +55,39 @@ async function fetchEvents(filters: Filter[]): Promise<Event[]> {
   return events;
 }
 
-function preloadUrl(url?: string): void {
-  if (!url || preloaded.has(url)) return;
-  const link = document.createElement('link');
-  link.rel = 'preload';
-  link.as = 'video';
-  link.href = url;
-  document.head.appendChild(link);
-  preloaded.add(url);
-}
-
 function preloadAround(idx: number, events: Event[]): void {
-  preloadUrl(events[idx + 1]?.content);
-  preloadUrl(events[idx - 1]?.content);
+  const nextUrl = events[idx + 1]?.content;
+  if (nextUrl) preloadVideo(nextUrl);
+  const prevUrl = events[idx - 1]?.content;
+  if (prevUrl) preloadVideo(prevUrl);
 }
 
 export const useVideoFeedStore = create<FeedState>((set, get) => ({
-  events: [],
-  index: 0,
+  metadata: [],
+  currentIndex: 0,
   key: undefined,
   async setFilters(filters) {
     const key = JSON.stringify(filters);
     if (get().key === key) return;
-    set({ key, index: 0, events: [] });
+    set({ key, currentIndex: 0, metadata: [] });
     const events = await fetchEvents(filters);
-    set({ events });
+    set({ metadata: events });
     preloadAround(0, events);
   },
   next() {
-    const { index, events } = get();
-    if (index < events.length - 1) {
-      const nextIndex = index + 1;
-      set({ index: nextIndex });
-      preloadAround(nextIndex, events);
+    const { currentIndex, metadata } = get();
+    if (currentIndex < metadata.length - 1) {
+      const nextIndex = currentIndex + 1;
+      set({ currentIndex: nextIndex });
+      preloadAround(nextIndex, metadata);
     }
   },
   prev() {
-    const { index, events } = get();
-    if (index > 0) {
-      const prevIndex = index - 1;
-      set({ index: prevIndex });
-      preloadAround(prevIndex, events);
+    const { currentIndex, metadata } = get();
+    if (currentIndex > 0) {
+      const prevIndex = currentIndex - 1;
+      set({ currentIndex: prevIndex });
+      preloadAround(prevIndex, metadata);
     }
   }
 }));
@@ -83,11 +95,7 @@ export const useVideoFeedStore = create<FeedState>((set, get) => ({
 export function __clearFeedCache(): void {
   resultsCache.clear();
   inflight.clear();
-  preloaded.clear();
-  // remove existing preload links
-  Array.from(document.head.querySelectorAll('link[rel="preload"][as="video"]')).forEach((el) =>
-    el.parentElement?.removeChild(el)
-  );
+  clearPreloadedVideos();
 }
 
 export default function useVideoFeed(filters: Filter[]): {
@@ -95,7 +103,7 @@ export default function useVideoFeed(filters: Filter[]): {
   next: () => void;
   prev: () => void;
 } {
-  const { events, index, setFilters, next, prev } = useVideoFeedStore();
+  const { metadata, currentIndex, setFilters, next, prev } = useVideoFeedStore();
 
   useEffect(() => {
     setFilters(filters).catch(() => {
@@ -104,7 +112,7 @@ export default function useVideoFeed(filters: Filter[]): {
   }, [filters, setFilters]);
 
   return {
-    currentVideo: events[index],
+    currentVideo: metadata[currentIndex],
     next,
     prev
   };
