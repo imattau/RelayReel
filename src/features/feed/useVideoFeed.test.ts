@@ -27,9 +27,12 @@ const sampleEvents: Event[] = [
 
 const filters: Filter[] = [{ kinds: [1] }];
 
+let connectSpy: any;
+
 beforeEach(() => {
   useVideoFeedStore.setState({ metadata: [], currentIndex: 0, key: undefined });
   __clearFeedCache();
+  connectSpy = vi.spyOn(NostrService, 'connect').mockResolvedValue();
 });
 
 afterEach(() => {
@@ -48,6 +51,7 @@ test('setFilters caches results and avoids duplicate subscriptions', async () =>
   await setFilters(filters);
   await setFilters(filters);
   expect(subscribe).toHaveBeenCalledTimes(1);
+  expect(connectSpy).toHaveBeenCalledTimes(1);
 });
 
 test('next and prev update index and preload videos', async () => {
