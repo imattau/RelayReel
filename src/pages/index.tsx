@@ -1,6 +1,17 @@
+import { useEffect } from 'react';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 
 export default function Home() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      router.replace('/feed');
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [router]);
+
   return (
     <>
       <Head>
