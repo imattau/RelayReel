@@ -10,11 +10,11 @@ export const SUPPORTED_VIDEO_TYPES = ['video/mp4', 'video/webm'];
 export const MAX_VIDEO_BYTES = 50 * 1024 * 1024; // 50MB
 
 /**
- * Hook to validate and preview selected videos.
+ * Hook to validate and preview selected video files.
  *
- * Provides an API for handling file input from camera or storage while
- * guarding against excessive memory or unsupported formats. On valid
- * selection a preview URL is generated and basic metadata is extracted.
+ * Provides an API for handling file input from storage while guarding against
+ * excessive memory usage or unsupported formats. On valid selection a preview
+ * URL is generated and basic metadata is extracted.
  */
 export default function useUploadVideo(): {
   selectFile: (file?: File) => void;
@@ -24,7 +24,6 @@ export default function useUploadVideo(): {
   reset: () => void;
   inputProps: {
     accept: string;
-    capture: 'environment';
   };
 } {
   const [previewUrl, setPreviewUrl] = useState<string>();
@@ -77,8 +76,7 @@ export default function useUploadVideo(): {
     error,
     reset,
     inputProps: {
-      accept: SUPPORTED_VIDEO_TYPES.join(','),
-      capture: 'environment'
+      accept: SUPPORTED_VIDEO_TYPES.join(',')
     }
   };
 }

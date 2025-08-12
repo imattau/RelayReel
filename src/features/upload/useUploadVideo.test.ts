@@ -15,6 +15,13 @@ describe('useUploadVideo', () => {
     vi.restoreAllMocks();
   });
 
+  test('exposes accept input props without capture', () => {
+    const { result } = renderHook(() => useUploadVideo());
+    expect(result.current.inputProps).toEqual({
+      accept: SUPPORTED_VIDEO_TYPES.join(',')
+    });
+  });
+
   test('rejects unsupported formats', () => {
     const file = new File(['a'], 'a.png', { type: 'image/png' });
     const { result } = renderHook(() => useUploadVideo());
