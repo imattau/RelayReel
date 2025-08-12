@@ -54,26 +54,40 @@ export const useVideoFeedStore = create<FeedState>((set, get) => ({
     }
     clearPreloadedVideos();
 
-    const cached = resultsCache.get(key) ?? [];
-    set({ key, currentIndex: 0, metadata: cached });
-    preloadAround(0, cached);
+    let cached = resultsCache.get(key);
+    set({ key, currentIndex: 0, metadata: cached ?? [] });
+    preloadAround(0, cached ?? []);
 
     await NostrService.connect(DEFAULT_RELAYS);
-      activeUnsub = await NostrService.subscribe(filters, {
-        onEvent: (e) => {
-          void isValidVideoUrl(e.content).then((valid) => {
-            if (!valid) return;
-            set((state) => {
-              if (state.key !== key) return state;
-              if (state.metadata.some((evt) => evt.id === e.id)) return state;
-              const next = [...state.metadata, e];
-              resultsCache.set(key, next);
-              preloadAround(state.currentIndex, next);
-              return { metadata: next };
-            });
+
+    if (!cached) {
+      const events = await NostrService.query(filters);
+      const checked = await Promise.all(
+        events.map(async (e) =>
+          (await isValidVideoUrl(e.content)) ? e : undefined
+        )
+      );
+      cached = checked.filter((e): e is Event => !!e);
+      resultsCache.set(key, cached);
+      set({ metadata: cached });
+      preloadAround(0, cached);
+    }
+
+    activeUnsub = await NostrService.subscribe(filters, {
+      onEvent: (e) => {
+        void isValidVideoUrl(e.content).then((valid) => {
+          if (!valid) return;
+          set((state) => {
+            if (state.key !== key) return state;
+            if (state.metadata.some((evt) => evt.id === e.id)) return state;
+            const next = [...state.metadata, e];
+            resultsCache.set(key, next);
+            preloadAround(state.currentIndex, next);
+            return { metadata: next };
           });
-        }
-      });
+        });
+      }
+    });
   },
   next() {
     const { currentIndex, metadata } = get();
