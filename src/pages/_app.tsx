@@ -15,6 +15,7 @@ export default function App({ Component, pageProps }: AppProps) {
   return (
     <>
       <Component {...pageProps} />
+      <div id="ui-layer" />
       <BottomNav />
     </>
   );
