@@ -139,7 +139,7 @@ export default function HomePage() {
 
   return (
     <motion.div
-      className="h-screen w-screen bg-black touch-none"
+      className="relative z-0 h-screen w-screen bg-black touch-none"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
