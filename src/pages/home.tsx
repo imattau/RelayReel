@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import useVideoFeed from '@/features/feed/useVideoFeed';
 import { createPlayer } from '@/services/video';
 import { CreatorInfo, ActionButtons } from '@/components/video';
-import Portal from '@/components/Portal';
 import { feedSince } from '@/config/feed';
 
 export default function HomePage() {
@@ -139,7 +138,8 @@ export default function HomePage() {
 
   return (
     <motion.div
-      className="relative z-0 h-screen w-screen bg-black touch-none"
+      className="relative z-0 h-[100dvh] w-screen bg-black touch-none transform-gpu"
+      style={{ paddingBottom: "var(--nav-h)" }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -161,30 +161,28 @@ export default function HomePage() {
             transition={{ duration: 0.3 }}
           >
             <Player />
-            <Portal>
-              <div className="pointer-events-none fixed inset-0 z-30 flex flex-col justify-between">
-                <CreatorInfo avatarUrl={undefined} creator={creator} caption={caption} />
-                <div className="flex justify-end p-2">
-                  <div className="pointer-events-auto">
-                    <ActionButtons
-                      liked={false}
-                      likeCount={0}
-                      commentCount={0}
-                      zapTotal={0}
-                      onLike={() => {}}
-                      onComment={() => {}}
-                      onShare={() => {}}
-                      onZap={() => {}}
-                    />
-                  </div>
+            <div className="pointer-events-none absolute inset-0 z-30 flex flex-col justify-between">
+              <CreatorInfo avatarUrl={undefined} creator={creator} caption={caption} />
+              <div className="flex justify-end p-2" style={{ marginBottom: "var(--nav-h)" }}>
+                <div className="pointer-events-auto">
+                  <ActionButtons
+                    liked={false}
+                    likeCount={0}
+                    commentCount={0}
+                    zapTotal={0}
+                    onLike={() => {}}
+                    onComment={() => {}}
+                    onShare={() => {}}
+                    onZap={() => {}}
+                  />
                 </div>
               </div>
-              {indicator && (
-                <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center text-white text-3xl">
-                  {indicator}
-                </div>
-              )}
-            </Portal>
+            </div>
+            {indicator && (
+              <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center text-white text-3xl">
+                {indicator}
+              </div>
+            )}
           </motion.div>
         ) : (
           <motion.p

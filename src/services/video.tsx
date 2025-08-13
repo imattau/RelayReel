@@ -37,7 +37,7 @@ export function createPlayer(
         muted
         playsInline
         preload="auto"
-        className="h-full w-full object-cover"
+        className="absolute inset-0 z-0 h-full w-full object-cover pointer-events-none"
         onWaiting={callbacks.onBuffer}
         onEnded={callbacks.onEnded}
         // Cast to any since React's type expects a specific Event type
@@ -111,42 +111,25 @@ const urlValidityCache = new Map<string, boolean>();
 
 /** Validate that a URL exists and serves video content. */
 export async function isValidVideoUrl(url: string): Promise<boolean> {
-  try {
-    const parsed = new URL(url);
-    if (!['http:', 'https:'].includes(parsed.protocol)) return false;
-
-    // Basic extension check to avoid unnecessary network requests
-    const ext = parsed.pathname.split('.').pop()?.toLowerCase();
-    const validExts = ['mp4', 'webm', 'ogg', 'mov', 'm4v'];
-    if (!ext || !validExts.includes(ext)) {
-      urlValidityCache.set(url, false);
-      return false;
-    }
-
-    // Skip cross-origin validation to prevent CORS errors
-    if (
-      typeof window !== 'undefined' &&
-      parsed.origin !== window.location.origin
-    ) {
-      urlValidityCache.set(url, true);
-      return true;
-    }
-  } catch {
-    return false;
+  const ext = url.split('?')[0].split('#')[0].split('.').pop()?.toLowerCase();
+  const validExts = ['mp4', 'webm', 'ogg', 'mov', 'm4v', 'm3u8'];
+  if (ext && validExts.includes(ext)) {
+    urlValidityCache.set(url, true);
+    return true;
   }
 
   const cached = urlValidityCache.get(url);
   if (cached !== undefined) return cached;
 
   try {
-    const res = await fetch(url, { method: 'HEAD' });
+    const res = await fetch(url, { method: 'HEAD', mode: 'no-cors' as any });
     const type = res.headers.get('content-type') ?? '';
-    const valid = res.ok && type.startsWith('video/');
+    const valid = res.ok && (type.startsWith('video/') || type === '');
     urlValidityCache.set(url, valid);
     return valid;
   } catch {
-    urlValidityCache.set(url, false);
-    return false;
+    urlValidityCache.set(url, true);
+    return true;
   }
 }
 

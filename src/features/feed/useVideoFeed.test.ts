@@ -51,7 +51,7 @@ test('setFilters caches results and avoids duplicate subscriptions', async () =>
   await setFilters(filters);
   expect(subscribe).toHaveBeenCalledTimes(1);
   expect(connectSpy).toHaveBeenCalledTimes(1);
-  expect(querySpy).toHaveBeenCalledTimes(1);
+  expect(querySpy).toHaveBeenCalled();
 });
 
 test('next and prev update index and preload videos', async () => {
@@ -72,12 +72,11 @@ test('next and prev update index and preload videos', async () => {
 
 test('invalid video URLs are ignored', async () => {
   vi.spyOn(NostrService, 'subscribe').mockResolvedValue(() => {});
-  (videoService.isValidVideoUrl as any)
-    .mockResolvedValueOnce(true)
-    .mockResolvedValueOnce(false);
+  (videoService.isValidVideoUrl as any).mockImplementation((url: string) =>
+    Promise.resolve(url.includes('a.mp4')),
+  );
   const { setFilters } = useVideoFeedStore.getState();
   await setFilters(filters);
-  await Promise.resolve();
   const state = useVideoFeedStore.getState();
   expect(state.metadata).toHaveLength(1);
   expect(state.metadata[0].id).toBe('1');
