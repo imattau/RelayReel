@@ -64,11 +64,51 @@ function clearSession(): void {
   }
 }
 
+function getVideoUrlFrom(e: { content: string; tags: string[][] }): string | undefined {
+  const urlTag = e.tags?.find((t) => t[0] === 'url' && t[1] && /^https?:\/\//.test(t[1]));
+  if (urlTag) return urlTag[1];
+  if (/^https?:\/\//.test(e.content)) return e.content;
+  return undefined;
+}
+
+function dedupe(events: Event[]): Event[] {
+  const seen = new Set<string>();
+  return events.filter((e) => {
+    if (seen.has(e.id)) return false;
+    seen.add(e.id);
+    return true;
+  });
+}
+
 function preloadAround(idx: number, events: Event[]): void {
   const nextUrl = events[idx + 1]?.content;
   if (nextUrl) preloadVideo(nextUrl);
   const prevUrl = events[idx - 1]?.content;
   if (prevUrl) preloadVideo(prevUrl);
+}
+
+async function seedInitialFeed(target = 25): Promise<void> {
+  let until: number | undefined;
+  const collected: Event[] = [];
+  for (let i = 0; i < 4 && collected.length < target; i++) {
+    const batch = await NostrService.query([
+      { kinds: [1], ...(until ? { until } : {}), limit: 100 },
+    ]);
+    if (!batch.length) break;
+    const sorted = batch.sort((a, b) => b.created_at - a.created_at);
+    for (const e of sorted) {
+      const url = getVideoUrlFrom(e);
+      if (!url) continue;
+      if (await isValidVideoUrl(url)) collected.push({ ...e, content: url });
+      if (collected.length >= target) break;
+    }
+    until = sorted[sorted.length - 1].created_at - 1;
+  }
+  useVideoFeedStore.setState((state) => ({
+    ...state,
+    metadata: dedupe([...state.metadata, ...collected]),
+  }));
+  preloadAround(0, collected);
 }
 
 export const useVideoFeedStore = create<FeedState>((set, get) => ({
@@ -96,35 +136,30 @@ export const useVideoFeedStore = create<FeedState>((set, get) => ({
     await NostrService.connect(DEFAULT_RELAYS);
 
     if (!cached) {
-      const events = await NostrService.query(filters);
-      const checked = await Promise.all(
-        events.map(async (e) =>
-          (await isValidVideoUrl(e.content)) ? e : undefined
-        )
-      );
-      cached = checked.filter((e): e is Event => !!e);
+      await seedInitialFeed();
+      cached = useVideoFeedStore.getState().metadata;
       resultsCache.set(key, cached);
-      set({ metadata: cached });
       preloadAround(0, cached);
       persistSession();
     }
 
     activeUnsub = await NostrService.subscribe(filters, {
       onEvent: (e) => {
-        void isValidVideoUrl(e.content).then((valid) => {
+        const url = getVideoUrlFrom(e);
+        if (!url) return;
+        void isValidVideoUrl(url).then((valid) => {
           if (!valid) return;
           set((state) => {
             if (state.key !== key) return state;
             if (state.metadata.some((evt) => evt.id === e.id)) return state;
-            const next = [...state.metadata, e];
+            const next = [...state.metadata, { ...e, content: url }];
             resultsCache.set(key, next);
             preloadAround(state.currentIndex, next);
-            const updated = { metadata: next };
-            return updated;
+            return { metadata: next };
           });
           persistSession();
         });
-      }
+      },
     });
   },
   next() {
