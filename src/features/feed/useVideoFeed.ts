@@ -65,9 +65,21 @@ function clearSession(): void {
 }
 
 function getVideoUrlFrom(e: { content: string; tags: string[][] }): string | undefined {
-  const urlTag = e.tags?.find((t) => t[0] === 'url' && t[1] && /^https?:\/\//.test(t[1]));
+  const imeta = e.tags?.find((t) => t[0] === 'imeta');
+  if (imeta) {
+    const urlEntry = imeta.find((s) => s.startsWith('url='));
+    if (urlEntry) return urlEntry.slice(4);
+  }
+
+  const urlTag = e.tags?.find(
+    (t) => t[0] === 'url' && t[1] && /^https?:\/\//.test(t[1]),
+  );
   if (urlTag) return urlTag[1];
-  if (/^https?:\/\//.test(e.content)) return e.content;
+
+  const match = e.content.match(
+    /https?:\/\/\S+?\.(mp4|webm|ogg|mov|m4v|m3u8)/i,
+  );
+  if (match) return match[0];
   return undefined;
 }
 

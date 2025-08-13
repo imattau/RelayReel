@@ -109,28 +109,31 @@ export function clearPreloadedVideos(): void {
 
 const urlValidityCache = new Map<string, boolean>();
 
-/** Validate that a URL exists and serves video content. */
+/** Validate that a URL likely points to video content. */
 export async function isValidVideoUrl(url: string): Promise<boolean> {
-  const ext = url.split('?')[0].split('#')[0].split('.').pop()?.toLowerCase();
-  const validExts = ['mp4', 'webm', 'ogg', 'mov', 'm4v', 'm3u8'];
-  if (ext && validExts.includes(ext)) {
-    urlValidityCache.set(url, true);
-    return true;
-  }
-
   const cached = urlValidityCache.get(url);
   if (cached !== undefined) return cached;
 
+  let valid = false;
   try {
-    const res = await fetch(url, { method: 'HEAD', mode: 'no-cors' as any });
-    const type = res.headers.get('content-type') ?? '';
-    const valid = res.ok && (type.startsWith('video/') || type === '');
-    urlValidityCache.set(url, valid);
-    return valid;
+    const parsed = new URL(url);
+    const pathMatch = parsed.pathname.match(/\.(mp4|webm|ogg|mov|m4v|m3u8)/i);
+    if (pathMatch) {
+      valid = true;
+    } else {
+      for (const [k, v] of parsed.searchParams) {
+        if ((k === 'url' || k === 'src') && /\.(mp4|webm|ogg|mov|m4v|m3u8)/i.test(v)) {
+          valid = true;
+          break;
+        }
+      }
+    }
   } catch {
-    urlValidityCache.set(url, true);
-    return true;
+    valid = /\.(mp4|webm|ogg|mov|m4v|m3u8)/i.test(url);
   }
+
+  urlValidityCache.set(url, valid);
+  return valid;
 }
 
 // Testing utility

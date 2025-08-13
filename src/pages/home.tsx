@@ -36,6 +36,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (currentVideo?.content) {
+      console.debug('Video URL:', currentVideo.content, currentVideo);
       load(currentVideo.content);
       play();
       setPlaying(true);

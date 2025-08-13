@@ -82,3 +82,22 @@ test('invalid video URLs are ignored', async () => {
   expect(state.metadata[0].id).toBe('1');
 });
 
+test('extracts URL from content with trailing text', async () => {
+  vi.spyOn(NostrService, 'subscribe').mockResolvedValue(() => {});
+  querySpy.mockResolvedValue([
+    {
+      id: '3',
+      kind: 1,
+      pubkey: 'pk3',
+      created_at: 0,
+      sig: 'sig3',
+      tags: [],
+      content: 'https://example.com/c.mp4%F0%9F%93%8A extra',
+    } as Event,
+  ]);
+  const { setFilters } = useVideoFeedStore.getState();
+  await setFilters(filters);
+  const state = useVideoFeedStore.getState();
+  expect(state.metadata[0].content).toBe('https://example.com/c.mp4');
+});
+
