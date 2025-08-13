@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import useVideoFeed from '@/features/feed/useVideoFeed';
 import { createPlayer } from '@/services/video';
 import { CreatorInfo, ActionButtons } from '@/components/video';
+import Portal from '@/components/Portal';
 import { feedSince } from '@/config/feed';
 
 export default function HomePage() {
@@ -160,28 +161,30 @@ export default function HomePage() {
             transition={{ duration: 0.3 }}
           >
             <Player />
-            <div className="pointer-events-none absolute inset-0 z-30 flex flex-col justify-between">
-              <CreatorInfo avatarUrl={undefined} creator={creator} caption={caption} />
-              <div className="flex justify-end p-2">
-                <div className="pointer-events-auto">
-                  <ActionButtons
-                    liked={false}
-                    likeCount={0}
-                    commentCount={0}
-                    zapTotal={0}
-                    onLike={() => {}}
-                    onComment={() => {}}
-                    onShare={() => {}}
-                    onZap={() => {}}
-                  />
+            <Portal>
+              <div className="pointer-events-none fixed inset-0 z-30 flex flex-col justify-between">
+                <CreatorInfo avatarUrl={undefined} creator={creator} caption={caption} />
+                <div className="flex justify-end p-2">
+                  <div className="pointer-events-auto">
+                    <ActionButtons
+                      liked={false}
+                      likeCount={0}
+                      commentCount={0}
+                      zapTotal={0}
+                      onLike={() => {}}
+                      onComment={() => {}}
+                      onShare={() => {}}
+                      onZap={() => {}}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-            {indicator && (
-              <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center text-white text-3xl">
-                {indicator}
-              </div>
-            )}
+              {indicator && (
+                <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center text-white text-3xl">
+                  {indicator}
+                </div>
+              )}
+            </Portal>
           </motion.div>
         ) : (
           <motion.p

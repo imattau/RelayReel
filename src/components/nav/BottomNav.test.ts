@@ -9,6 +9,12 @@ vi.mock('next/link', () => ({
 }));
 
 describe('BottomNav', () => {
+  beforeEach(() => {
+    const uiLayer = document.createElement('div');
+    uiLayer.id = 'ui-layer';
+    document.body.appendChild(uiLayer);
+  });
+
   it('renders navigation links', () => {
     render(React.createElement(BottomNav));
     expect(screen.getByRole('link', { name: /home/i })).toBeInTheDocument();
