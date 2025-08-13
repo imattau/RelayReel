@@ -54,7 +54,11 @@ export function createPlayer(
   };
 
   const play = () => {
-    ref.current?.play?.();
+    ref.current?.play?.().catch((err: any) => {
+      if (err?.name !== 'AbortError') {
+        callbacks.onError?.(err);
+      }
+    });
   };
 
   const pause = () => {
@@ -84,6 +88,10 @@ export function preloadVideo(url?: string): void {
   const link = document.createElement("link");
   link.rel = "preload";
   link.as = "video";
+  if (link.as !== "video") {
+    // Fallback for browsers that don't support video preload
+    link.as = "fetch";
+  }
   link.href = url;
   document.head.appendChild(link);
   preloaded.add(url);
@@ -93,7 +101,9 @@ export function preloadVideo(url?: string): void {
 export function clearPreloadedVideos(): void {
   preloaded.clear();
   Array.from(
-    document.head.querySelectorAll('link[rel="preload"][as="video"]'),
+    document.head.querySelectorAll(
+      'link[rel="preload"][as="video"], link[rel="preload"][as="fetch"]',
+    ),
   ).forEach((el) => el.parentElement?.removeChild(el));
 }
 
