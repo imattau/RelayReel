@@ -19,7 +19,7 @@ RelayReel is a TikTok‑style short‑video Progressive Web App powered by the N
 | State Management        | Zustand                          |
 | Data Storage            | Dexie (IndexedDB)                |
 | Nostr Integration       | nostr-tools                      |
-| Video Playback          | react-player                     |
+| Video Playback          | HTML5 video element              |
 | Payments (Lightning)    | lnurl-pay + nostr-tools          |
 | Testing                 | Vitest/Jest + Playwright         |
 
@@ -34,7 +34,7 @@ src/
  │   └─ auth/             # useAuth (NIP-07) & useRemoteSigner (NIP-46)
  ├─ services/
  │   ├─ nostr.ts          # wrapper around nostr-tools
- │   ├─ video.ts          # playback utilities (react-player)
+   │   ├─ video.ts          # playback utilities (HTML5 video)
  │   └─ storage.ts        # Dexie persistence, Workbox helpers
  └─ pages/                # Next.js routes; compose hooks + components
 ```

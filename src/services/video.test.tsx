@@ -1,71 +1,63 @@
 import React from "react";
 import { act, render } from "@testing-library/react";
-import ReactPlayer from "react-player";
 import { vi, describe, it, expect } from "vitest";
 import {
   createPlayer,
   isValidVideoUrl,
-  __clearVideoUrlCache
+  __clearVideoUrlCache,
+  preloadVideo,
 } from "./video";
-
-vi.mock("react-player", () => {
-  return {
-    default: vi.fn((props: any) => <div data-testid="player" />),
-  };
-});
+import * as videoModule from "./video";
 
 describe("createPlayer", () => {
   it("exposes controls and forwards events", () => {
-    const ref = {
-      current: {
-        play: vi.fn(),
-        pause: vi.fn(),
-        currentTime: 0,
-      },
-    } as any;
+    const ref = { current: document.createElement("video") } as any;
+    ref.current.play = vi.fn();
+    ref.current.pause = vi.fn();
     const callbacks = {
       onBuffer: vi.fn(),
       onEnded: vi.fn(),
       onError: vi.fn(),
     };
+    const preloadSpy = vi
+      .spyOn(videoModule, "preloadVideo")
+      .mockImplementation(() => {});
     const { Player, load, play, pause, seek } = createPlayer(ref, callbacks);
 
     render(<Player />);
-    const mainProps = (ReactPlayer as any).mock.calls[0][0];
-    (ref.current as any).play = vi.fn();
-    (ref.current as any).pause = vi.fn();
-    (ref.current as any).currentTime = 0;
+    const videoEl = ref.current as HTMLVideoElement;
 
     // props ensure mobile autoplay support
-    expect(mainProps.muted).toBe(true);
-    expect(mainProps.playsInline).toBe(true);
-    expect(mainProps.preload).toBe("auto");
+    expect(videoEl.muted).toBe(true);
+    expect(videoEl.playsInline).toBe(true);
+    expect(videoEl.preload).toBe("auto");
 
     // forward events
-    mainProps.onWaiting();
+    videoEl.dispatchEvent(new Event("waiting"));
     expect(callbacks.onBuffer).toHaveBeenCalled();
-    mainProps.onEnded();
+    videoEl.dispatchEvent(new Event("ended"));
     expect(callbacks.onEnded).toHaveBeenCalled();
-    mainProps.onError("err");
-    expect(callbacks.onError).toHaveBeenCalledWith("err");
+    videoEl.dispatchEvent(new Event("error"));
+    expect(callbacks.onError).toHaveBeenCalled();
 
     // load with preloaded URLs
     act(() => {
       load("main.mp4", { next: "next.mp4", prev: "prev.mp4" });
     });
-    expect((ReactPlayer as any).mock.calls.length).toBe(4);
+    expect(videoEl.src).toContain("main.mp4");
+    expect(preloadSpy).toHaveBeenCalledTimes(2);
 
     // controls
     act(() => {
       play();
     });
-    expect((ref.current as any).play).toHaveBeenCalled();
+    expect(videoEl.play).toHaveBeenCalled();
     act(() => {
       pause();
     });
-    expect((ref.current as any).pause).toHaveBeenCalled();
+    expect(videoEl.pause).toHaveBeenCalled();
     seek(5);
-    expect((ref.current as any).currentTime).toBe(5);
+    expect(videoEl.currentTime).toBe(5);
   });
 });
 
@@ -81,14 +73,13 @@ describe("isValidVideoUrl", () => {
 
   it("returns true for URLs with a known video extension", async () => {
     await expect(isValidVideoUrl("https://example.com/a.mp4")).resolves.toBe(
-      true
+      true,
     );
     expect(fetch).not.toHaveBeenCalled();
   });
 
   it("returns false when URL lacks a video extension", async () => {
-    await expect(isValidVideoUrl("https://example.com"))
-      .resolves.toBe(false);
+    await expect(isValidVideoUrl("https://example.com")).resolves.toBe(false);
     expect(fetch).not.toHaveBeenCalled();
   });
 });
