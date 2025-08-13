@@ -1,5 +1,4 @@
 import React, { type ReactElement, type RefObject, useState } from "react";
-import ReactPlayer from "react-player";
 
 export interface PlayerCallbacks {
   onBuffer?: () => void;
@@ -17,85 +16,48 @@ export interface PlayerApi {
 }
 
 /**
- * createPlayer renders ReactPlayer with standardized props and exposes helpers.
+ * createPlayer renders a native HTMLVideoElement and exposes helpers.
  * Mobile autoplay is enabled via muted + playsInline.
  */
 export function createPlayer(
   ref: RefObject<HTMLVideoElement>,
-  callbacks: PlayerCallbacks = {}
+  callbacks: PlayerCallbacks = {},
 ): PlayerApi {
   let setSrc: (src: string) => void;
-  let setPlaying: (playing: boolean) => void;
-  let setPreload: (urls: { next?: string; prev?: string }) => void;
 
   const Player = () => {
     const [src, _setSrc] = useState<string>();
-    const [playing, _setPlaying] = useState(false);
-    const [preloadUrls, _setPreload] = useState<{ next?: string; prev?: string }>({});
-
-    // expose setters to outer scope
+    // expose setter to outer scope
     setSrc = _setSrc;
-    setPlaying = _setPlaying;
-    setPreload = _setPreload;
 
     return (
-      <>
-        <ReactPlayer
-          ref={ref}
-          src={src}
-          playing={playing}
-          muted
-          playsInline
-          preload="auto"
-          width="100%"
-          height="100%"
-          style={{ objectFit: 'cover' }}
-          onWaiting={callbacks.onBuffer}
-          onEnded={callbacks.onEnded}
-          onError={callbacks.onError}
-        />
-        {preloadUrls.next && (
-          <ReactPlayer
-            src={preloadUrls.next}
-            playing={false}
-            muted
-            playsInline
-            preload="auto"
-            width="0"
-            height="0"
-            style={{ display: "none" }}
-          />
-        )}
-        {preloadUrls.prev && (
-          <ReactPlayer
-            src={preloadUrls.prev}
-            playing={false}
-            muted
-            playsInline
-            preload="auto"
-            width="0"
-            height="0"
-            style={{ display: "none" }}
-          />
-        )}
-      </>
+      <video
+        ref={ref}
+        src={src}
+        muted
+        playsInline
+        preload="auto"
+        className="h-full w-full object-cover"
+        onWaiting={callbacks.onBuffer}
+        onEnded={callbacks.onEnded}
+        // Cast to any since React's type expects a specific Event type
+        onError={callbacks.onError as any}
+      />
     );
   };
 
   const load = (src: string, urls?: { next?: string; prev?: string }) => {
     setSrc?.(src);
     if (urls) {
-      setPreload?.(urls);
+      preload(urls);
     }
   };
 
   const play = () => {
-    setPlaying?.(true);
     ref.current?.play?.();
   };
 
   const pause = () => {
-    setPlaying?.(false);
     ref.current?.pause?.();
   };
 
@@ -106,7 +68,8 @@ export function createPlayer(
   };
 
   const preload = (urls: { next?: string; prev?: string }) => {
-    setPreload?.(urls);
+    preloadVideo(urls.next);
+    preloadVideo(urls.prev);
   };
 
   return { Player, load, play, pause, seek, preload };
@@ -130,7 +93,7 @@ export function preloadVideo(url?: string): void {
 export function clearPreloadedVideos(): void {
   preloaded.clear();
   Array.from(
-    document.head.querySelectorAll('link[rel="preload"][as="video"]')
+    document.head.querySelectorAll('link[rel="preload"][as="video"]'),
   ).forEach((el) => el.parentElement?.removeChild(el));
 }
 
@@ -151,7 +114,10 @@ export async function isValidVideoUrl(url: string): Promise<boolean> {
     }
 
     // Skip cross-origin validation to prevent CORS errors
-    if (typeof window !== 'undefined' && parsed.origin !== window.location.origin) {
+    if (
+      typeof window !== 'undefined' &&
+      parsed.origin !== window.location.origin
+    ) {
       urlValidityCache.set(url, true);
       return true;
     }
@@ -178,5 +144,4 @@ export async function isValidVideoUrl(url: string): Promise<boolean> {
 export function __clearVideoUrlCache(): void {
   urlValidityCache.clear();
 }
-
 
