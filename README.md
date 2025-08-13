@@ -10,6 +10,11 @@ Start the Next.js dev server on all network interfaces:
 pnpm dev
 ```
 
+### Configuration
+
+- `NEXT_PUBLIC_FEED_WINDOW_DAYS`: limit the feed to events published within the
+  last _N_ days (defaults to `7`).
+
 ## Feature Hook Usage
 - **useAuth**: establishes a signer (browser NIP-07 or remote NIP-46) and connects to the user's preferred relays via `NostrService.connect`.
 - **useVideoFeed**: queries initial video events with `NostrService.query` and listens for updates via `NostrService.subscribe`. Components that can tolerate delayed updates may pass a debounce interval to avoid rapid re-renders. The hook persists up to 20 events and the current index in `sessionStorage` so the feed resumes where the user left off.

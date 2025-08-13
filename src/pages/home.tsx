@@ -4,9 +4,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import useVideoFeed from '@/features/feed/useVideoFeed';
 import { createPlayer } from '@/services/video';
 import { CreatorInfo, ActionButtons } from '@/components/video';
+import { feedSince } from '@/config/feed';
 
 export default function HomePage() {
-  const filters = useMemo<Filter[]>(() => [{ kinds: [1] }], []);
+  const filters = useMemo<Filter[]>(
+    () => [{ kinds: [1], since: feedSince() }],
+    []
+  );
   const { currentVideo, next, prev } = useVideoFeed(filters);
   const [direction, setDirection] = useState(0);
   const handleNext = useCallback(() => {
